@@ -1,2 +1,1 @@
-# CycleGAN_mbc
-MBC with CycleGAN
+# Spatial_CycleGAN
