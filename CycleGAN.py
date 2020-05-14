@@ -305,8 +305,8 @@ def compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,epoch, 
     res_correlo_fakesetB, _, distance = compute_correlo(reversed_fakesetB, ind, lon, lat, point_grid)
     #
     ##to del
-    print(res_correlo_datasetA)
-    print(res_correlo_datasetB)
+    #print(res_correlo_datasetA)
+    #print(res_correlo_datasetB)
     ##end to del
     mae_correlogram = np.mean(abs(res_correlo_fakesetB-res_correlo_datasetB))
     print('> MAE_correlo ', round(mae_correlogram,3))
@@ -430,7 +430,7 @@ def train_combined_new(rank_version,PR_version,genA2B, genB2A, discA, discB, com
             plot_history_criteria(MAE_sd_rel_, "mae_sd_rel",-0.01,0.2,path_to_save)
             plot_history_criteria(MAE_correlogram_, "mae_correlogram",-0.01,0.3,path_to_save)
         ####EARLY STOPPING
-        if np.mean(g_hist[-2000:]>3.5 or np.std(g_hist[-2000:]) >0.26):
+        if i>50 and (np.mean(g_hist[-2000:])>3.5 or np.std(g_hist[-2000:]) >0.26):
             print('BREAK! For the 2000 last points: mean_gloss=%.3f, sd_gloss=%.3f ' % (np.mean(g_hist[-2000:] ), np.std(g_hist[-2000:])))
             break
 
