@@ -93,8 +93,6 @@ for lr_disc in list_lr_disc:
         genB2A = CycleGAN.define_generator()
         # create the gan
         comb_model = CycleGAN.define_combined(genA2B, genB2A, discA, discB,lr_gen=lr_gen)
-        # load image data
-        comb_model.summary()
 
         #### Create a new folder
         os.chdir("/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/SAFRAN_IPSL/SpatialCycleGAN/"+ var_phys+"/"+season)
@@ -111,10 +109,6 @@ for lr_disc in list_lr_disc:
 
         #### Train CycleGAN
         CycleGAN.train_combined_new(rank_version, PR_version, genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=1000) #####attention n_epochs
-
-
-
-
 
 
 
