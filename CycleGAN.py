@@ -247,9 +247,9 @@ def compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,epoch, 
     # Generate bias correction
     fakesetB = genA2B.predict(datasetA)
     #Init matrices for evalutation of criteria
-    datasetA_eval=datasetA
-    datasetB_eval=datasetB
-    fakesetB_eval=fakesetB
+    datasetA_eval=np.copy(datasetA)
+    datasetB_eval=np.copy(datasetB)
+    fakesetB_eval=np.copy(fakesetB)
     if rank_version==False:
         #Rescale climatic variables wrt Xmin and Xmax
         n=-1
@@ -261,8 +261,8 @@ def compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,epoch, 
                 fakesetB_eval[:,k,l,:] = fakesetB_eval[:,k,l,:]*(XmaxB_[n] - XminB_[n])+ XminB_[n]
     else:
         #Reorder rank data with OriginalData
-        datasetA_eval=OriginalA
-        datasetB_eval=OriginalB
+        datasetA_eval=np.copy(OriginalA)
+        datasetB_eval=np.copy(OriginalB)
         for k in range(28):
             for l in range(28):
                 sorted_OriginalB=np.sort(datasetB_eval[:,k,l,0])
