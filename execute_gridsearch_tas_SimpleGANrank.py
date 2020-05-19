@@ -46,8 +46,10 @@ season="winter_79_16"
 rank_version=True
 
 #### Hyperparameters?: learning rate of disc and gen?
-lr_gen=0.0001
-lr_disc=5e-5
+#lr_gen=0.0001
+#lr_disc=5e-5
+list_lr_gen=[1e-4,2e-4]
+list_lr_disc=[1e-4,8e-5,5e-5,1e-5]
 
 ##################################################################
 ##### Automatized below according to the choices
@@ -65,26 +67,12 @@ if season != "Annual_79_16":
 else:
     Ind_season=np.array(range(13870))
 
-
-#################################################################
-# create the discriminator
-discB = SimpleGAN.define_discriminator(lr_disc=lr_disc)
-# create the generator
-genA2B = SimpleGAN.define_generator()
-# create the gan
-gan = SimpleGAN.define_gan(genA2B, discB,lr_gen=lr_gen)
-# load image data
-gan.summary()
-
 #### Load IPSL
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/IPSL/")
 if(rank_version==False):
     datasetA, LON_Paris, LAT_Paris, XminA_, XmaxA_, IND_Paris, point_max, OriginalA = SimpleGAN.load_RData_minmax("tas_pr_day_IPSL_79_16_Paris",var_phys + "_day_IPSL_79_16_Paris",Ind_season)
 else:
     datasetA, LON_Paris, LAT_Paris, XminA_, XmaxA_, IND_Paris, point_max, OriginalA = SimpleGAN.load_RData_rank("tas_pr_day_IPSL_79_16_Paris",var_phys + "_day_IPSL_79_16_Paris",Ind_season)
-
-
-
 
 #### Load SAFRAN
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/SAFRAN/")
@@ -93,24 +81,36 @@ if(rank_version==False):
 else:
     datasetB, LON_Paris, LAT_Paris, XminB_, XmaxB_, IND_Paris, point_max, OriginalB = SimpleGAN.load_RData_rank("tas_pr_day_SAFRAN_79_16_Paris",var_phys + "_day_SAFRAN_79_16_Paris",Ind_season)
 
+#################################################################
+# create the discriminator
+for lr_disc in list_lr_disc:
+    for lr_gen in list_lr_gen:
+        print('disc lr' + str(lr_disc))
+        print('gen lr' + str(lr_gen))      
+        discB = SimpleGAN.define_discriminator(lr_disc=lr_disc)
+        # create the generator
+        genA2B = SimpleGAN.define_generator()
+        # create the gan
+        gan = SimpleGAN.define_gan(genA2B, discB,lr_gen=lr_gen)
+        # load image data
+        gan.summary()
 
-#### Create a new folder
-os.chdir("/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/SAFRAN_IPSL/SpatialSimpleGAN/"+ var_phys+"/"+season)
-if rank_version==False:
-    name_version="minmax"
-else:
-    name_version="rank"
+        #### Create a new folder
+        os.chdir("/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/SAFRAN_IPSL/SpatialSimpleGAN/"+ var_phys+"/"+season)
+        if rank_version==False:
+            name_version="minmax"
+        else:
+            name_version="rank"
 
-new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc)
-makedirs(new_folder, exist_ok=True)
-makedirs(new_folder + '/models', exist_ok=True)
-makedirs(new_folder + '/diagnostic', exist_ok=True)
+        new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc)
+        makedirs(new_folder, exist_ok=True)
+        makedirs(new_folder + '/models', exist_ok=True)
+        makedirs(new_folder + '/diagnostic', exist_ok=True)
 
-path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/SAFRAN_IPSL/SpatialSimpleGAN/"+var_phys+"/"+season+"/"+new_folder
+        path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/SAFRAN_IPSL/SpatialSimpleGAN/"+var_phys+"/"+season+"/"+new_folder
 
-
-#### Train CycleGAN
-SimpleGAN.train_gan_new(rank_version, PR_version, genA2B, discB, gan, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_plot=path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=3000) #####attention n_epochs
+        #### Train CycleGAN
+        SimpleGAN.train_gan_new(rank_version, PR_version, genA2B, discB, gan, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_plot=path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=3000) #####attention n_epochs
 
 
 
