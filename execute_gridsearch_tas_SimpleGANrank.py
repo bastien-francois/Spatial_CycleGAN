@@ -48,8 +48,8 @@ rank_version=True
 #### Hyperparameters?: learning rate of disc and gen?
 #lr_gen=0.0001
 #lr_disc=5e-5
-list_lr_gen=[1e-4,2e-4,4e-4]
-list_lr_disc=[1e-4,8e-5,5e-5,1e-5]
+list_lr_gen=[1e-4,2e-4]
+list_lr_disc=[1e-5,2e-5]
 
 ##################################################################
 ##### Automatized below according to the choices
@@ -110,7 +110,7 @@ for lr_disc in list_lr_disc:
         path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/SAFRAN_IPSL/SpatialSimpleGAN/"+var_phys+"/"+season+"/"+new_folder
 
         #### Train CycleGAN
-        SimpleGAN.train_gan_new(rank_version, PR_version, genA2B, discB, gan, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_plot=path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=3000) #####attention n_epochs
+        SimpleGAN.train_gan_new(rank_version, PR_version, genA2B, discB, gan, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_plot=path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=2000) #####attention n_epochs
 
 
 
