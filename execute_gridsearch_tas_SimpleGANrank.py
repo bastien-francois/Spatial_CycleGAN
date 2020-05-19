@@ -48,7 +48,7 @@ rank_version=True
 #### Hyperparameters?: learning rate of disc and gen?
 #lr_gen=0.0001
 #lr_disc=5e-5
-list_lr_gen=[1e-4,2e-4]
+list_lr_gen=[1e-4,2e-4,4e-4]
 list_lr_disc=[1e-4,8e-5,5e-5,1e-5]
 
 ##################################################################
