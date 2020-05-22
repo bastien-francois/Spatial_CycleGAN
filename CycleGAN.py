@@ -333,7 +333,7 @@ def plot_some_raw_maps(epoch,genA2B, genB2A, datasetA,datasetB,path_plot,n_sampl
             # turn off axis
             pyplot.axis('off')
             # plot raw pixel data
-            print(examples.shape)
+            #print(examples.shape)
             pyplot.imshow(examples[(j*28):((j+1)*28), :], cmap='YlOrRd')
             if i==0:
                 pyplot.title(str(names_[j]) ,fontsize=10, y=1)
