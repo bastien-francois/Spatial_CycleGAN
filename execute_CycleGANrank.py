@@ -33,8 +33,8 @@ import sys
 GAN_version="SpatialCycleGAN"
 
 #Physical variable?
-var_phys="tas"
-#var_phys="pr"
+#var_phys="tas"
+var_phys="pr"
 
 #### Period in the year?
 season="winter_79_16"
@@ -46,8 +46,8 @@ season="winter_79_16"
 rank_version=True
 
 #### Hyperparameters?: learning rate of disc and gen?
-lr_gen=0.0005
-lr_disc=5e-5
+list_lr_gen=[5e-4]
+list_lr_disc=[5e-5]
 
 Ref="SAFRAN"
 Mod="SAFRANdet"
@@ -86,18 +86,6 @@ else:
     Ind_season=np.array(range(13870))
 
 
-#################################################################
-# create the discriminator
-discA = CycleGAN.define_discriminator(lr_disc=lr_disc)
-discB = CycleGAN.define_discriminator(lr_disc=lr_disc)
-# create the generator
-genA2B = CycleGAN.define_generator()
-genB2A = CycleGAN.define_generator()
-# create the gan
-comb_model = CycleGAN.define_combined(genA2B, genB2A, discA, discB,lr_gen=lr_gen)
-# load image data
-#comb_model.summary()
-
 #### Load Model 
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/" + Mod + "/")
 if(rank_version==False):
@@ -115,25 +103,35 @@ if(rank_version==False):
 else:
     datasetB, LON_Paris, LAT_Paris, XminB_, XmaxB_, IND_Paris, point_max, OriginalB = CycleGAN.load_RData_rank("tas_pr_day_" + Ref + "_79_16_Paris",var_phys + "_day_" + Ref + "_79_16_Paris",Ind_season)
 
+#################################################################
+# create the discriminator
+for lr_disc in list_lr_disc:
+    for lr_gen in list_lr_gen:
+        print('gen lr' + str(lr_gen))
+        print('disc lr' + str(lr_disc))
 
-#### Create a new folder
-os.chdir("/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+ var_phys+"/"+season)
-if rank_version==False:
-    name_version="minmax"
-else:
-    name_version="rank"
-
-new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_sigmoid"
-makedirs(new_folder, exist_ok=True)
-makedirs(new_folder + '/models', exist_ok=True)
-makedirs(new_folder + '/diagnostic', exist_ok=True)
-
-path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+var_phys+"/"+season+"/"+new_folder
-
-
-#### Train CycleGAN
-CycleGAN.train_combined_new(rank_version, PR_version,is_DS, genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=2000) #####attention n_epochs
-
+        discA = CycleGAN.define_discriminator(lr_disc=lr_disc)
+        discB = CycleGAN.define_discriminator(lr_disc=lr_disc)
+        # create the generator
+        genA2B = CycleGAN.define_generator()
+        genB2A = CycleGAN.define_generator()
+        # create the gan
+        comb_model = CycleGAN.define_combined(genA2B, genB2A, discA, discB,lr_gen=lr_gen)
+        # load image data
+        #comb_model.summary()
+        #### Create a new folder
+        os.chdir("/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+ var_phys+"/"+season)
+        if rank_version==False:
+            name_version="minmax"
+        else:
+            name_version="rank"
+        new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_sigmoid"
+        makedirs(new_folder, exist_ok=True)
+        makedirs(new_folder + '/models', exist_ok=True)
+        makedirs(new_folder + '/diagnostic', exist_ok=True)
+        path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+var_phys+"/"+season+"/"+new_folder
+        #### Train CycleGAN
+        CycleGAN.train_combined_new(rank_version, PR_version,is_DS, genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=2000) #####attention n_epochs
 
 
 
