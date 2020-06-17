@@ -31,22 +31,37 @@ import tensorflow as tf
 from scipy.stats import *
 import rpy2.robjects as robjects
 from math import *
+from SBCK.metrics import wasserstein
+from SBCK.tools import bin_width_estimator
+from SBCK.tools.__OT import OTNetworkSimplex
+from SBCK.tools.__tools_cpp import SparseHist
 
 #### Attention, nouvelle organisation
-def load_RData_minmax(RData_file,variable,index_temporal):
-    load_data = robjects.r.load(RData_file + '.RData')
-    dataset=robjects.r[variable]
-    X = np.array(dataset)
-    X= np.transpose(X, (2,  1, 0))
+def load_RData_minmax(RData_file,variable,index_temporal, region='Paris'):
+    if "SAFRANdetbili" in RData_file: #if SAFRANdetbili, then npy data au format LON_LAT_Time
+         load_data = np.load(RData_file + ".npz")
+         X = load_data[variable]
+         X= np.transpose(X, (2,  1, 0))
+         lon = load_data['LON_' + region]
+         lat = load_data['LAT_' + region]
+         ind = load_data['IND_' + region]
+         point_grid = range(784)
+    else:
+        load_data = robjects.r.load(RData_file + '.RData') #format LON_Lat_Time
+        dataset=robjects.r[variable]
+        X = np.array(dataset)
+        X= np.transpose(X, (2,  1, 0))
+        lon =  robjects.r['LON_' + region]
+        lon = np.array(lon)
+        lat =  robjects.r['LAT_' + region]
+        lat = np.array(lat)
+        ind = robjects.r['IND_' + region]
+        ind = np.array(ind)-1 ### ATTENTION Python specific  from RData
+        point_grid = range(784)
+
     #Sub-selection of array
-    X = X[index_temporal,:,:]
-    lon =  robjects.r['LON_Paris']
-    lon = np.array(lon)
-    lat =  robjects.r['LAT_Paris']
-    lat = np.array(lat)
-    ind = robjects.r['IND_Paris']
-    ind = np.array(ind)-1 ### ATTENTION Python specific
-    point_grid = range(784)
+    if index_temporal is not None:
+        X = X[index_temporal,:,:]
     # expand to 3d, e.g. add channels dimension
     X = expand_dims(X, axis=-1)
     # convert from unsigned ints to floats
@@ -65,19 +80,32 @@ def load_RData_minmax(RData_file,variable,index_temporal):
             X[:,k,l,:]=(X[:,k,l,:]-min_[n])/(max_[n]-min_[n])
     return X, lon, lat, min_, max_, ind, point_grid, OriginalX
 
-def load_RData_rank(RData_file,variable,index_temporal):
-    load_data = robjects.r.load(RData_file + '.RData')
-    dataset=robjects.r[variable]
-    X = np.array(dataset)
-    X= np.transpose(X, (2,  1, 0))
-    X= X[index_temporal,:,:]
-    lon =  robjects.r['LON_Paris']
-    lon = np.array(lon)
-    lat =  robjects.r['LAT_Paris']
-    lat = np.array(lat)
-    ind = robjects.r['IND_Paris']
-    ind = np.array(ind)-1
-    point_grid = range(784)
+def load_RData_rank(RData_file,variable,index_temporal,region='Paris'):
+    if "SAFRANdetbili" in RData_file:
+         load_data = np.load(RData_file + ".npz")
+         ### Load npy file: no need to invert axes (only for RData)
+         X = load_data[variable]
+         X = np.transpose(X,(2,1,0))
+         ### but need of LON/LAT/IND: picked in SAFRANdet
+         lon = load_data['LON_'+ region]
+         lat = load_data['LAT_' + region]
+         ind = load_data['IND_' + region]
+         point_grid = range(784)
+    else:
+        load_data = robjects.r.load(RData_file + '.RData')
+        dataset=robjects.r[variable]
+        X = np.array(dataset)
+        X= np.transpose(X, (2,  1, 0))
+        lon =  robjects.r['LON_' + region]
+        lon = np.array(lon)
+        lat =  robjects.r['LAT_' + region]
+        lat = np.array(lat)
+        ind = robjects.r['IND_' + region]
+        ind = np.array(ind)-1 ### ATTENTION Python specific  from RData
+        point_grid = range(784)
+
+    if index_temporal is not None:
+        X= X[index_temporal,:,:]
     # expand to 3d, e.g. add channels dimension
     X = expand_dims(X, axis=-1)
     # convert from unsigned ints to floats
@@ -128,8 +156,8 @@ def define_generator(in_shape=(28,28,1)):  #same as Soulivanh (except filter siz
     model = LeakyReLU(alpha=0.2)(model)
     model = Conv2D(1, (1,1), padding='same')(model)
     model = Add()([model, input]) # SKIP Connection
-    #model = LeakyReLU(alpha=0.2)(model)
-    model = tf.keras.layers.Activation(activation='sigmoid')(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    #model = tf.keras.layers.Activation(activation='sigmoid')(model)
     generator = Model(input, model)
     return generator
 
@@ -238,7 +266,7 @@ def plot_maps(epoch, PR_version, mat_A, mat_B, mat_A2B, title, lon, lat,path_plo
     pyplot.close()
 
 
-def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, genA2B, genB2A, datasetA,datasetB, OriginalA, OriginalB, XminA_, XmaxA_, XminB_, XmaxB_, dict_rank_rmse, dict_varphy_rmse, path_plot,n_samples=8):
+def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, genA2B, genB2A, datasetA,datasetB, OriginalA, OriginalB, XminA_, XmaxA_, XminB_, XmaxB_, dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, ind, point_grid, path_plot,n_samples=8):
 
     def plot_raw_varphy(is_raw, ix, epoch, PR_version, sample_A, sample_B, sample_A2B, sample_B2A, sample_A2B2A, sample_B2A2B, sample_B2A_A, sample_A2B_B,n=n_samples):
         vmin = np.quantile(vstack((sample_A,sample_B)), 0.025)
@@ -305,8 +333,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
 
 
     # reitrieve selected images
-    sample_datasetA = datasetA
-    sample_datasetB = datasetB
+    sample_datasetA = np.copy(datasetA)
+    sample_datasetB = np.copy(datasetB)
 
     #### Generate correction
     sample_fakesetA2B = genA2B.predict(sample_datasetA)
@@ -316,12 +344,22 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
     sample_fakesetB2A_A = genB2A.predict(sample_datasetA)
     sample_fakesetA2B_B = genA2B.predict(sample_datasetB)
 
+
+    #### Quantiles of raw values
+
+    print("A")
+    print(np.quantile(sample_datasetA,np.array([0,0.1,0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1])))
+    print("B")
+    print(np.quantile(sample_datasetB,np.array([0,0.1,0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1])))
+    print("A2B")
+    print(np.quantile(sample_fakesetA2B,np.array([0,0.1,0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1])))
+
     # choose random instances
     ix = np.random.randint(0, datasetA.shape[0], n_samples)
     plot_raw_varphy(True, ix, epoch, PR_version, sample_datasetA[ix], sample_datasetB[ix], sample_fakesetA2B[ix], sample_fakesetB2A[ix], sample_fakesetA2B2A[ix], sample_fakesetB2A2B[ix], sample_fakesetB2A_A[ix], sample_fakesetA2B_B[ix])
 
     dict_rank_rmse=compute_some_rmse(is_DS,dict_rank_rmse,sample_datasetA, sample_datasetB, sample_fakesetA2B, sample_fakesetB2A, sample_fakesetA2B2A, sample_fakesetB2A2B, sample_fakesetB2A_A, sample_fakesetA2B_B)
-
+    dict_rank_wd=compute_some_wasserstein(dict_rank_wd,sample_datasetB, sample_fakesetA2B, ind, point_grid, bin_size = dict_rank_wd["bin_size"])
     #### Plot some var_phys maps
     sample_varphy_A = np.copy(sample_datasetA)
     sample_varphy_B = np.copy(sample_datasetB)
@@ -341,7 +379,7 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
                 n=n+1
                 sample_varphy_A[:,k,l,:] = sample_varphy_A[:,k,l,:]*(XmaxA_[n] - XminA_[n])+ XminA_[n]
                 sample_varphy_B2A[:,k,l,:] = sample_varphy_B2A[:,k,l,:]*(XmaxA_[n] - XminA_[n])+ XminA_[n]
-                sample_varphy_AB2A[:,k,l,:] = sample_varphy_AB2A[:,k,l,:]*(XmaxA_[n] - XminA_[n])+ XminA_[n]
+                sample_varphy_A2B2A[:,k,l,:] = sample_varphy_A2B2A[:,k,l,:]*(XmaxA_[n] - XminA_[n])+ XminA_[n]
                 sample_varphy_B2A_A[:,k,l,:] = sample_varphy_B2A_A[:,k,l,:]*(XmaxA_[n] - XminA_[n])+ XminA_[n]
 
                 sample_varphy_B[:,k,l,:] = sample_varphy_B[:,k,l,:]*(XmaxB_[n] - XminB_[n])+ XminB_[n]
@@ -350,8 +388,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
                 sample_varphy_A2B_B[:,k,l,:] = sample_varphy_A2B_B[:,k,l,:]*(XmaxB_[n] - XminB_[n])+ XminB_[n]
     else:
         #Reorder rank data with OriginalData
-        sample_varphy_A = OriginalA
-        sample_varphy_B = OriginalB
+        sample_varphy_A = np.copy(OriginalA)
+        sample_varphy_B = np.copy(OriginalB)
         for k in range(28):
             for l in range(28):
                 quant_to_take_B2A=np.array(sample_varphy_B2A[:,k,l,0])
@@ -380,7 +418,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
 
     plot_raw_varphy(False, ix, epoch, PR_version, sample_varphy_A[ix], sample_varphy_B[ix], sample_varphy_A2B[ix], sample_varphy_B2A[ix], sample_varphy_A2B2A[ix], sample_varphy_B2A2B[ix], sample_varphy_B2A_A[ix], sample_varphy_A2B_B[ix])
     dict_varphy_rmse=compute_some_rmse(is_DS,dict_varphy_rmse,sample_varphy_A, sample_varphy_B, sample_varphy_A2B, sample_varphy_B2A, sample_varphy_A2B2A, sample_varphy_B2A2B, sample_varphy_B2A_A, sample_varphy_A2B_B)
-    return dict_rank_rmse, dict_varphy_rmse
+    dict_varphy_wd=compute_some_wasserstein(dict_varphy_wd,sample_varphy_B, sample_varphy_A2B, ind, point_grid, bin_size=dict_varphy_wd["bin_size"])
+    return dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd
 
 
 def compute_some_rmse(is_DS,dict_rmse,sample_A,sample_B,sample_A2B, sample_B2A, sample_A2B2A, sample_B2A2B,sample_B2A_A, sample_A2B_B):
@@ -405,6 +444,30 @@ def compute_some_rmse(is_DS,dict_rmse,sample_A,sample_B,sample_A2B, sample_B2A, 
     return dict_rmse
 
 
+def compute_bin_width_wasserstein(dataset,ind,point_grid):
+    reversed_dataset=np.transpose(dataset[:,:,:,0],(2,1,0))
+    tmp_=np.transpose(transform_array_in_matrix(reversed_dataset, ind, point_grid))
+    bin_width=bin_width_estimator(tmp_)
+    bin_width_mean=[bin_width.mean()]*len(bin_width)
+    #print(bin_width_mean)
+    return bin_width_mean
+
+
+
+
+def compute_some_wasserstein(dict_wd,dataset1,dataset2,ind,point_grid, bin_size= None):
+    reversed_dataset1=np.transpose(dataset1[:,:,:,0],(2,1,0))
+    reversed_dataset2=np.transpose(dataset2[:,:,:,0],(2,1,0))
+    tmp_1=np.transpose(transform_array_in_matrix(reversed_dataset1, ind, point_grid))
+    tmp_2=np.transpose(transform_array_in_matrix(reversed_dataset2, ind, point_grid))
+    mu_tmp_1 = SparseHist(tmp_1,bin_size)
+    mu_tmp_2 = SparseHist(tmp_2, bin_size)
+    res=wasserstein(mu_tmp_1,mu_tmp_2)
+    if dict_wd is not None:
+        dict_wd["wd_A2B"].append(res)
+        res=dict_wd
+    return res
+
 def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     np.save(path_plot+'/models/rmse_dict_rank.npy',dict_rank)
     np.save(path_plot+'/models/rmse_dict_varphy.npy',dict_varphy)
@@ -413,6 +476,7 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     pyplot.plot(dict_rank["rmse_B2A2B"], label='B2A2B')
     pyplot.plot(dict_rank["rmse_A2B_B"], label='A2B_B')
     if is_DS==True:
+        pyplot.hlines(dict_rank["rmse_A"],xmin=0, xmax=len(dict_rank["rmse_A2B"]), label='A')
         pyplot.plot(dict_rank["rmse_A2B"], label='A2B')
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_rank["rmse_A2B"]))
         pyplot.title("Best A2B at epoch " +  str(idx*10+1), fontsize=7)
@@ -441,6 +505,7 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     pyplot.plot(dict_varphy["rmse_B2A2B"], label='B2A2B')
     pyplot.plot(dict_varphy["rmse_A2B_B"], label='A2B_B')
     if is_DS==True:
+        pyplot.hlines(dict_varphy["rmse_A"],xmin=0, xmax=len(dict_varphy["rmse_A2B"]), label='A')
         pyplot.plot(dict_varphy["rmse_A2B"], label='A2B')
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["rmse_A2B"]))
         pyplot.title("Best A2B at epoch " +  str(idx*10+1), fontsize=7)
@@ -459,6 +524,31 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     pyplot.ylim((0,1))
     #save plot to file
     pyplot.savefig(path_plot + '/diagnostic/plot_history_rmse_varphy.png')
+    pyplot.close()
+
+def plot_dict_wd(dict_rank, dict_varphy, path_plot):
+    np.save(path_plot+'/models/wd_dict_rank.npy',dict_rank)
+    np.save(path_plot+'/models/wd_dict_varphy.npy',dict_varphy)
+    pyplot.figure(figsize=(9,9))
+    pyplot.subplot(2, 1, 1)
+    pyplot.plot(dict_rank["wd_A2B"], label='wd_rank_A2B')
+    pyplot.hlines(dict_rank["wd_A"],xmin=0, xmax=len(dict_rank["wd_A2B"]), label='wd_rank_A')
+    val, idx = min((val, idx) for (idx, val) in enumerate(dict_rank["wd_A2B"]))
+    pyplot.title("Best A2B at epoch " +  str(idx*10+1) + " with " + str(round(val,3)) + ", bin_size: " + str(round(dict_rank["bin_size"][1],3)), fontsize=7)
+    pyplot.legend()
+    pyplot.ylim((-0.1,2))
+#    print("Wass. rank A2B: " + str(round(dict_rank["wd_A2B"][-1],3)))
+#    print("Wass. rank A: " + str(round(dict_rank["wd_A"][-1],3)))
+    pyplot.subplot(2,1,2)
+    pyplot.plot(dict_varphy["wd_A2B"], label='wd_varphy_A2B')
+    pyplot.hlines(dict_varphy["wd_A"],xmin=0, xmax=len(dict_rank["wd_A2B"]),label='wd_varphy_A')
+    val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["wd_A2B"]))
+    pyplot.title("Best A2B at epoch " +  str(idx*10+1) + " with " + str(round(val,3)) + ", bin_size: " + str(round(dict_varphy["bin_size"][1],3)), fontsize=7)
+    pyplot.legend()
+    pyplot.ylim((0,50))
+
+   #save plot to file
+    pyplot.savefig(path_plot + '/diagnostic/plot_history_wd.png')
     pyplot.close()
 
 
@@ -523,20 +613,26 @@ def compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,epoch, 
     #Compute correlograms
     #Need to reverse the array
     reversed_datasetA=np.transpose(datasetA_eval[:,:,:,0],(2,1,0))
-    res_correlo_datasetA, _, distance = compute_correlo(reversed_datasetA, ind, lon, lat, point_grid)
+    res_correlo_datasetA, _, distance = compute_correlo(True,reversed_datasetA, ind, lon, lat, point_grid)
+    res_correlo_wt_remove_datasetA, _, distance = compute_correlo(False,reversed_datasetA, ind, lon, lat, point_grid)
 
     reversed_datasetB=np.transpose(datasetB_eval[:,:,:,0],(2,1,0))
-    res_correlo_datasetB, _, distance = compute_correlo(reversed_datasetB, ind, lon, lat, point_grid)
+    res_correlo_datasetB, _, distance = compute_correlo(True,reversed_datasetB, ind, lon, lat, point_grid)
+    res_correlo_wt_remove_datasetB, _, distance = compute_correlo(False,reversed_datasetB, ind, lon, lat, point_grid)
 
     reversed_fakesetB=np.transpose(fakesetB_eval[:,:,:,0],(2,1,0))
-    res_correlo_fakesetB, _, distance = compute_correlo(reversed_fakesetB, ind, lon, lat, point_grid)
+    res_correlo_fakesetB, _, distance = compute_correlo(True,reversed_fakesetB, ind, lon, lat, point_grid)
+    res_correlo_wt_remove_fakesetB, _, distance = compute_correlo(False,reversed_fakesetB, ind, lon, lat, point_grid)
 
     mae_correlogram_cyclegan = np.mean(abs(res_correlo_fakesetB-res_correlo_datasetB))
     mae_correlogram_mod = np.mean(abs(res_correlo_datasetA - res_correlo_datasetB))
+    mae_correlogram_wt_remove_cyclegan = np.mean(abs(res_correlo_wt_remove_fakesetB - res_correlo_wt_remove_datasetB))
+    mae_correlogram_wt_remove_mod = np.mean(abs(res_correlo_wt_remove_datasetA - res_correlo_wt_remove_datasetB))
     print('> MAE_correlo ', round(mae_correlogram_cyclegan,3))
     #plot correlograms
+    pyplot.figure(figsize=(9,10))
     title_crit="correlograms"
-    pyplot.subplot(1, 1, 1)
+    pyplot.subplot(2, 1, 1)
     pyplot.plot(distance,res_correlo_datasetA,color="red")
     pyplot.plot(distance,res_correlo_datasetB,color="black")
     pyplot.plot(distance,res_correlo_fakesetB,color="green")
@@ -545,10 +641,21 @@ def compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,epoch, 
     pyplot.ylim((-1,1.05))
     pyplot.ylabel(name_var + " Spearman spatial Corr")
     pyplot.xlabel("Distance (km)")
+
+    pyplot.subplot(2, 1, 2)
+    pyplot.plot(distance,res_correlo_wt_remove_datasetA,color="red")
+    pyplot.plot(distance,res_correlo_wt_remove_datasetB,color="black")
+    pyplot.plot(distance,res_correlo_wt_remove_fakesetB,color="green")
+    pyplot.legend(['Mod', 'Ref', 'CycleGAN'], loc='upper right')
+    pyplot.title('MAE Correlogram CycleGAN: ' +str(round(mae_correlogram_wt_remove_cyclegan,3)) + ' / Mod:' + str(round(mae_correlogram_wt_remove_mod,3)) ,fontsize=10, y=1)
+    pyplot.ylim((-1,1.05))
+    pyplot.ylabel(name_var + " Spearman spatial Corr")
+    pyplot.xlabel("Distance (km)")
+
     pyplot.savefig(path_plot + '/diagnostic/plot_'+ title_crit + '_%03d.png' % (epoch+1))
     pyplot.close()
 
-    return mae_mean, mae_std_rel, mae_correlogram_cyclegan
+    return mae_mean, mae_std_rel, mae_correlogram_cyclegan, mae_correlogram_wt_remove_cyclegan
 
 def recap_accuracy_and_save_gendisc(epoch,genA2B, genB2A, discA, discB, datasetA, datasetB, path_plot, n_samples=100):
     #Recap accuracy of discriminators 
@@ -639,18 +746,34 @@ def plot_history_criteria(crit,title_crit,ylim1,ylim2,path_plot):
     pyplot.savefig(path_plot + '/diagnostic/plot_'+ title_crit + '.png')
     pyplot.close()
 
+
+
+
+def rmse(ref, pred):
+    return np.sum((ref.astype("float") - pred.astype("float")) **2)/(ref.shape[1]*ref.shape[2]*ref.shape[0])
+
+
+
 def train_combined_new(rank_version,PR_version,is_DS,genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, OriginalA, OriginalB, ind, lon, lat,point_grid,path_to_save ,XminA_=None,XmaxA_=None,XminB_=None,XmaxB_=None,n_epochs=100, n_batch=32):
     bat_per_epo = int(datasetA.shape[0] / n_batch)
     half_batch = int(n_batch / 2)
     # prepare lists for storing stats each iteration
     discA_hist, discB_hist, validA_hist, validB_hist, recA_hist, recB_hist,identA_hist, identB_hist, weighted_hist = list(), list(), list(), list(), list(), list(), list(), list(), list()
     discA_acc_hist, discB_acc_hist = list(), list()
-    MAE_mean_, MAE_sd_rel_, MAE_correlogram_= list(), list(), list()
-    #### Init dict for rmse
-    keys_rmse = ["rmse_B2A2B", "rmse_A2B_B", "rmse_A2B", "rmse_A2B2A", "rmse_B2A_A","rmse_B2A"]
+    MAE_mean_, MAE_sd_rel_, MAE_correlogram_, MAE_correlogram_wt_remove= list(), list(), list(), list()
+    #### Init dict for rmse and wd
+    keys_rmse = ["rmse_A","rmse_B2A2B", "rmse_A2B_B", "rmse_A2B", "rmse_A2B2A", "rmse_B2A_A","rmse_B2A"]
     dict_rank_rmse = {key: [] for key in keys_rmse}
+    dict_rank_rmse["rmse_A"].append(rmse(datasetA,datasetB))
     dict_varphy_rmse = {key: [] for key in keys_rmse}
-
+    dict_varphy_rmse["rmse_A"].append(rmse(OriginalA, OriginalB))
+    keys_wd = ["wd_A","wd_A2B","bin_size"]
+    dict_rank_wd = {key: [] for key in keys_wd}
+    dict_rank_wd["bin_size"] = compute_bin_width_wasserstein(datasetB, ind, point_grid)
+    dict_rank_wd["wd_A"].append(compute_some_wasserstein(None, datasetA, datasetB, ind, point_grid, bin_size = dict_rank_wd["bin_size"]))
+    dict_varphy_wd = {key: [] for key in keys_wd}
+    dict_varphy_wd["bin_size"] = compute_bin_width_wasserstein(OriginalB, ind, point_grid)
+    dict_varphy_wd["wd_A"].append(compute_some_wasserstein(None, OriginalA, OriginalB, ind, point_grid, bin_size = dict_varphy_wd["bin_size"]))
     # manually enumerate epochs
     for i in range(n_epochs):
         # enumerate batches over the training set
@@ -691,18 +814,21 @@ def train_combined_new(rank_version,PR_version,is_DS,genA2B, genB2A, discA, disc
         if (i+1) % 10 == 1:
             recap_accuracy_and_save_gendisc(i,genA2B, genB2A, discA, discB, datasetA, datasetB, path_plot=path_to_save, n_samples=100)
 
-            res_mae_mean, res_mae_sd_rel, res_mae_correlogram = compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,i, datasetA, datasetB, OriginalA, OriginalB, genA2B,  XminA_, XmaxA_, XminB_, XmaxB_,ind, lon, lat,point_grid,path_plot=path_to_save)
+            res_mae_mean, res_mae_sd_rel, res_mae_correlogram, res_mae_correlogram_wt_remove = compute_and_plot_criteria_for_early_stopping(rank_version,PR_version,i, datasetA, datasetB, OriginalA, OriginalB, genA2B,  XminA_, XmaxA_, XminB_, XmaxB_,ind, lon, lat,point_grid,path_plot=path_to_save)
 
-            dict_rank_rmse, dict_varphy_rmse = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, genA2B, genB2A, datasetA, datasetB,OriginalA, OriginalB, XminA_, XmaxA_, XminB_, XmaxB_,dict_rank_rmse, dict_varphy_rmse, path_to_save)
+            dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, genA2B, genB2A, datasetA, datasetB,OriginalA, OriginalB, XminA_, XmaxA_, XminB_, XmaxB_,dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd,ind, point_grid, path_to_save)
 
             plot_dict_rmse(is_DS,dict_rank_rmse,dict_varphy_rmse,path_to_save)
+            plot_dict_wd(dict_rank_wd, dict_varphy_wd, path_to_save)
             MAE_mean_.append(res_mae_mean)
             MAE_sd_rel_.append(res_mae_sd_rel)
             MAE_correlogram_.append(res_mae_correlogram)
+            MAE_correlogram_wt_remove.append(res_mae_correlogram_wt_remove)
             #plot history of criteria
             plot_history_criteria(MAE_mean_, "mae_mean",-0.01,0.5,path_to_save)
             plot_history_criteria(MAE_sd_rel_, "mae_sd_rel",-0.01,0.2,path_to_save)
             plot_history_criteria(MAE_correlogram_, "mae_correlogram",-0.01,0.3,path_to_save)
+            plot_history_criteria(MAE_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,0.3,path_to_save)
             #####EARLY STOPPING
         #if i>50 and (np.mean(g_hist[-2000:])>3.5 or np.std(g_hist[-2000:]) >0.26):
         #    print('BREAK! For the 2000 last points: mean_gloss=%.3f, sd_gloss=%.3f ' % (np.mean(g_hist[-2000:] ), np.std(g_hist[-2000:])))
@@ -714,7 +840,7 @@ def train_combined_new(rank_version,PR_version,is_DS,genA2B, genB2A, discA, disc
 
 
 ########## For evaluation
-def transform_array_in_matrix(data_array,ind,point_grid):
+def transform_array_in_matrix(data_array,ind,point_grid): #input: LONxLATxtime #output: nb_var x time
     res_transform=np.empty([ind.shape[0], data_array.shape[2]])
     k=(-1)
     for point in point_grid:
@@ -724,8 +850,18 @@ def transform_array_in_matrix(data_array,ind,point_grid):
         res_transform[k,:]=data_array[i,j,:]
     return res_transform
 
+def transform_back_in_array(data_matrix,ind,point_grid): #input: nb_var x time output: LONxLATxtime 
+    res_transform=np.empty([np.max(ind[:,0]+1), np.max(ind[:,1])+1,data_matrix.shape[1]])
+    k=(-1)
+    for point in point_grid:
+        k=k+1
+        i=ind[point,0]
+        j=ind[point,1]
+        res_transform[i,j,:]=data_matrix[k,:]
+    return res_transform
 
-def compute_correlo(data,ind,lon,lat,point_grid):
+
+def compute_correlo(remove_spat_mean,data,ind,lon,lat,point_grid):
     lon2=np.empty(784)
     lat2=np.empty(784)
     for i in range(784):
@@ -753,7 +889,10 @@ def compute_correlo(data,ind,lon,lat,point_grid):
     MatData=transform_array_in_matrix(data,ind,point_grid)
     tmp_daily_spat_mean=np.mean(MatData, axis=0)
     means_expanded = np.outer(tmp_daily_spat_mean, np.ones(784))
-    Mat_daily_mean_removed=np.transpose(MatData)-means_expanded
+    if remove_spat_mean==True:
+        Mat_daily_mean_removed=np.transpose(MatData)-means_expanded
+    else:
+        Mat_daily_mean_removed=np.transpose(MatData)
     Cspearman,_ =spearmanr(Mat_daily_mean_removed)
     Res_Mean_corr=[]
     Res_Med_corr=[]
@@ -769,4 +908,4 @@ def compute_correlo(data,ind,lon,lat,point_grid):
     Correlo_dist=np.array(Correlo_dist)
     return Res_Mean_corr, Res_Med_corr, Correlo_dist
 
-
+#
