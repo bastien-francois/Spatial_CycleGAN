@@ -33,8 +33,8 @@ import sys
 GAN_version="SpatialCycleGAN"
 
 #Physical variable?
-#var_phys="tas"
-var_phys="pr"
+var_phys="tas"
+#var_phys="pr"
 
 #### Period in the year?
 season="winter_79_16"
@@ -42,17 +42,18 @@ season="winter_79_16"
 #season="annual_79_16"
 
 #### Rank version or minmax version?
-#rank_version=False
-rank_version=True
+rank_version=False
+#rank_version=True
 
 #### Hyperparameters?: learning rate of disc and gen?
 list_lr_gen=[5e-4]
-list_lr_disc=[5e-5]
+list_lr_disc=[1e-5]
 
 Ref="SAFRAN"
-Mod="SAFRANdet"
+Mod="IPSLbili"
 
-
+#### Wasserstein distances?
+computation_WD=False
 
 
 ##################################################################
@@ -89,19 +90,39 @@ else:
 #### Load Model 
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/" + Mod + "/")
 if(rank_version==False):
-    datasetA, LON_Paris, LAT_Paris, XminA_, XmaxA_, IND_Paris, point_max, OriginalA = CycleGAN.load_RData_minmax("tas_pr_day_" + Mod + "_79_16_Paris",var_phys + "_day_" + Mod + "_79_16_Paris",Ind_season)
+    datasetA,LON_Paris,LAT_Paris,XminA_,XmaxA_,IND_Paris,point_max,OriginalA = CycleGAN.load_RData_minmax("tas_pr_day_" + Mod + "_79_16_Paris",var_phys + "_day_" + Mod + "_79_16_Paris",Ind_season)
 else:
-    datasetA, LON_Paris, LAT_Paris, XminA_, XmaxA_, IND_Paris, point_max, OriginalA = CycleGAN.load_RData_rank("tas_pr_day_" + Mod + "_79_16_Paris",var_phys + "_day_" + Mod + "_79_16_Paris",Ind_season)
-
+    datasetA, LON_Paris, LAT_Paris, XminA_, XmaxA_, IND_Paris,point_max, OriginalA = CycleGAN.load_RData_rank("tas_pr_day_" + Mod + "_79_16_Paris",var_phys + "_day_" + Mod + "_79_16_Paris",Ind_season)
 
 
 
 #### Load Ref
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/" + Ref + "/")
 if(rank_version==False):
-    datasetB, LON_Paris, LAT_Paris, XminB_, XmaxB_, IND_Paris, point_max, OriginalB = CycleGAN.load_RData_minmax("tas_pr_day_" + Ref + "_79_16_Paris",var_phys + "_day_" + Ref + "_79_16_Paris",Ind_season)
+    datasetB, LON_Paris, LAT_Paris,XminB_,XmaxB_,IND_Paris, point_max, OriginalB = CycleGAN.load_RData_minmax("tas_pr_day_" + Ref + "_79_16_Paris",var_phys + "_day_" + Ref + "_79_16_Paris",Ind_season)
 else:
-    datasetB, LON_Paris, LAT_Paris, XminB_, XmaxB_, IND_Paris, point_max, OriginalB = CycleGAN.load_RData_rank("tas_pr_day_" + Ref + "_79_16_Paris",var_phys + "_day_" + Ref + "_79_16_Paris",Ind_season)
+    datasetB, LON_Paris, LAT_Paris,XminB_,XmaxB_, IND_Paris, point_max, OriginalB = CycleGAN.load_RData_rank("tas_pr_day_" + Ref + "_79_16_Paris",var_phys + "_day_" + Ref + "_79_16_Paris",Ind_season)
+
+
+#### Load QQ
+if var_phys=="pr" and Mod is not "SAFRANdetbili":
+    BC1d="1dCDFt"
+else:
+    BC1d="1dQQ"
+
+os.chdir("/gpfswork/rech/eal/commun/CycleGAN/MBC/" + Ref + "_" + Mod + "/")
+if(rank_version==False):
+    datasetQQ,_,_,_,_,_,_,OriginalQQ=CycleGAN.load_RData_minmax("tas_pr_day_PC0_"+BC1d+"_"+Ref+"_"+Mod+"_79_16_Paris",var_phys + "_day_PC0_" + BC1d + "_" + Ref + "_" + Mod + "_79_16_Paris",Ind_season)
+else:
+    datasetQQ,_,_,_,_,_,_,OriginalQQ=CycleGAN.load_RData_rank("tas_pr_day_PC0_"+BC1d+"_"+Ref+"_"+Mod+"_79_16_Paris",var_phys+"_day_PC0_" + BC1d + "_" + Ref + "_" + Mod + "_79_16_Paris",Ind_season)
+
+
+
+
+
+
+
+
 
 #################################################################
 # create the discriminator
@@ -125,13 +146,13 @@ for lr_disc in list_lr_disc:
             name_version="minmax"
         else:
             name_version="rank"
-        new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_sigmoid"
+        new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_Relu"
         makedirs(new_folder, exist_ok=True)
         makedirs(new_folder + '/models', exist_ok=True)
         makedirs(new_folder + '/diagnostic', exist_ok=True)
         path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+var_phys+"/"+season+"/"+new_folder
         #### Train CycleGAN
-        CycleGAN.train_combined_new(rank_version, PR_version,is_DS, genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, OriginalA, OriginalB,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=2000) #####attention n_epochs
+        CycleGAN.train_combined_new(rank_version, PR_version,is_DS,computation_WD ,genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ ,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=6000) #####attention n_epochs
 
 
 
