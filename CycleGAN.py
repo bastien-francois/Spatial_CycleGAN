@@ -266,7 +266,7 @@ def plot_maps(epoch, PR_version, mat_A, mat_B, mat_A2B, title, lon, lat,path_plo
     pyplot.close()
 
 
-def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, genA2B, genB2A, datasetA,datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, XminA_, XmaxA_, XminB_, XmaxB_, dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd, ind, point_grid, path_plot,n_samples=8):
+def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, computation_WD, genA2B, genB2A, datasetA,datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, XminA_, XmaxA_, XminB_, XmaxB_, dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd, ind, point_grid, path_plot,n_samples=8):
 
     def plot_raw_varphy(is_raw, ix, epoch, PR_version, sample_A, sample_B, sample_A2B, sample_B2A, sample_A2B2A, sample_B2A2B, sample_B2A_A, sample_A2B_B,n=n_samples):
         vmin = np.quantile(vstack((sample_A,sample_B)), 0.025)
@@ -359,7 +359,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
     plot_raw_varphy(True, ix, epoch, PR_version, sample_datasetA[ix], sample_datasetB[ix], sample_fakesetA2B[ix], sample_fakesetB2A[ix], sample_fakesetA2B2A[ix], sample_fakesetB2A2B[ix], sample_fakesetB2A_A[ix], sample_fakesetA2B_B[ix])
 
     dict_rank_rmse=compute_some_rmse(is_DS,dict_rank_rmse,sample_datasetA, sample_datasetB, sample_fakesetA2B, sample_fakesetB2A, sample_fakesetA2B2A, sample_fakesetB2A2B, sample_fakesetB2A_A, sample_fakesetA2B_B, sample_datasetQQ)
-    dict_rank_wd=compute_some_wasserstein(dict_rank_wd, sample_datasetA, sample_datasetB, sample_fakesetA2B, sample_datasetQQ, ind, point_grid, bin_size = dict_rank_wd["bin_size"])
+    if computation_WD==True:
+        dict_rank_wd=compute_some_wasserstein(dict_rank_wd, sample_datasetA, sample_datasetB, sample_fakesetA2B, sample_datasetQQ, ind, point_grid, bin_size = dict_rank_wd["bin_size"])
     #### Plot some var_phys maps
     sample_varphy_A = np.copy(sample_datasetA)
     sample_varphy_B = np.copy(sample_datasetB)
@@ -419,15 +420,16 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, g
 
     plot_raw_varphy(False, ix, epoch, PR_version, sample_varphy_A[ix], sample_varphy_B[ix], sample_varphy_A2B[ix], sample_varphy_B2A[ix], sample_varphy_A2B2A[ix], sample_varphy_B2A2B[ix], sample_varphy_B2A_A[ix], sample_varphy_A2B_B[ix])
     dict_varphy_rmse=compute_some_rmse(is_DS,dict_varphy_rmse,sample_varphy_A, sample_varphy_B, sample_varphy_A2B, sample_varphy_B2A, sample_varphy_A2B2A, sample_varphy_B2A2B, sample_varphy_B2A_A, sample_varphy_A2B_B, sample_varphy_QQ)
-    dict_varphy_wd=compute_some_wasserstein(dict_varphy_wd, sample_varphy_A, sample_varphy_B, sample_varphy_A2B, sample_varphy_QQ, ind, point_grid, bin_size=dict_varphy_wd["bin_size"])
+    if computation_WD==True:
+        dict_varphy_wd=compute_some_wasserstein(dict_varphy_wd, sample_varphy_A, sample_varphy_B, sample_varphy_A2B, sample_varphy_QQ, ind, point_grid, bin_size=dict_varphy_wd["bin_size"])
 
     #### on realrank
-    sample_realrank_A = compute_matrix_real_rank(sample_varphy_A)
-    sample_realrank_B = compute_matrix_real_rank(sample_varphy_B)
-    sample_realrank_A2B = compute_matrix_real_rank(sample_varphy_A2B)
-    sample_realrank_QQ = compute_matrix_real_rank(sample_varphy_QQ)
-
-    dict_realrank_wd = compute_some_wasserstein(dict_realrank_wd, sample_realrank_A, sample_realrank_B, sample_realrank_A2B, sample_realrank_QQ, ind, point_grid, bin_size = dict_realrank_wd["bin_size"])
+    if computation_WD==True:
+        sample_realrank_A = compute_matrix_real_rank(sample_varphy_A)
+        sample_realrank_B = compute_matrix_real_rank(sample_varphy_B)
+        sample_realrank_A2B = compute_matrix_real_rank(sample_varphy_A2B)
+        sample_realrank_QQ = compute_matrix_real_rank(sample_varphy_QQ)
+        dict_realrank_wd = compute_some_wasserstein(dict_realrank_wd, sample_realrank_A, sample_realrank_B, sample_realrank_A2B, sample_realrank_QQ, ind, point_grid, bin_size = dict_realrank_wd["bin_size"])
     return dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd
 
 
@@ -496,12 +498,12 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     np.save(path_plot+'/models/rmse_dict_varphy.npy',dict_varphy)
     pyplot.figure(figsize=(9,9))
     pyplot.subplot(2, 1, 1)
-    pyplot.plot(dict_rank["rmse_B2A2B"], label='B2A2B')
-    pyplot.plot(dict_rank["rmse_A2B_B"], label='A2B_B')
+    pyplot.plot(dict_rank["rmse_B2A2B"], label='B2A2B', color="red")
+    pyplot.plot(dict_rank["rmse_A2B_B"], label='A2B_B', color= "green")
     if is_DS==True:
         pyplot.hlines(dict_rank["rmse_QQ"],xmin=0, xmax=len(dict_rank["rmse_A2B"]), label='QQ', color='orange')
-        pyplot.hlines(dict_rank["rmse_A"],xmin=0, xmax=len(dict_rank["rmse_A2B"]), label='A')
-        pyplot.plot(dict_rank["rmse_A2B"], label='A2B')
+        pyplot.hlines(dict_rank["rmse_A"],xmin=0, xmax=len(dict_rank["rmse_A2B"]), label='A',color='black')
+        pyplot.plot(dict_rank["rmse_A2B"], label='A2B', color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_rank["rmse_A2B"]))
         pyplot.title("Best A2B at epoch " +  str(idx*10+1), fontsize=7)
 
@@ -510,10 +512,10 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     pyplot.ylim((1e-7,1))
 
     pyplot.subplot(2,1,2)
-    pyplot.plot(dict_rank["rmse_A2B2A"], label='A2B2A')
-    pyplot.plot(dict_rank["rmse_B2A_A"], label='B2A_A')
+    pyplot.plot(dict_rank["rmse_A2B2A"], label='A2B2A', color="red")
+    pyplot.plot(dict_rank["rmse_B2A_A"], label='B2A_A', color="green")
     if is_DS==True:
-        pyplot.plot(dict_rank["rmse_B2A"], label='B2A')
+        pyplot.plot(dict_rank["rmse_B2A"], label='B2A', color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_rank["rmse_B2A"]))
         pyplot.title("Best B2A at epoch " +  str(idx*10+1), fontsize=7)
     pyplot.legend()
@@ -526,12 +528,12 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
 #### RMSE_varphy
     pyplot.figure(figsize=(9,9))
     pyplot.subplot(2, 1, 1)
-    pyplot.plot(dict_varphy["rmse_B2A2B"], label='B2A2B')
-    pyplot.plot(dict_varphy["rmse_A2B_B"], label='A2B_B')
+    pyplot.plot(dict_varphy["rmse_B2A2B"], label='B2A2B', color="red")
+    pyplot.plot(dict_varphy["rmse_A2B_B"], label='A2B_B', color="green")
     if is_DS==True:
         pyplot.hlines(dict_varphy["rmse_QQ"],xmin=0, xmax=len(dict_varphy["rmse_A2B"]), label='QQ', color='orange')
-        pyplot.hlines(dict_varphy["rmse_A"],xmin=0, xmax=len(dict_varphy["rmse_A2B"]), label='A')
-        pyplot.plot(dict_varphy["rmse_A2B"], label='A2B')
+        pyplot.hlines(dict_varphy["rmse_A"],xmin=0, xmax=len(dict_varphy["rmse_A2B"]), label='A', color="black")
+        pyplot.plot(dict_varphy["rmse_A2B"], label='A2B', color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["rmse_A2B"]))
         pyplot.title("Best A2B at epoch " +  str(idx*10+1), fontsize=7)
 
@@ -539,10 +541,10 @@ def plot_dict_rmse(is_DS,dict_rank, dict_varphy, path_plot):
     pyplot.ylim((0,1))
 
     pyplot.subplot(2,1,2)
-    pyplot.plot(dict_varphy["rmse_A2B2A"], label='A2B2A')
-    pyplot.plot(dict_varphy["rmse_B2A_A"], label='B2A_A')
+    pyplot.plot(dict_varphy["rmse_A2B2A"], label='A2B2A', color="red")
+    pyplot.plot(dict_varphy["rmse_B2A_A"], label='B2A_A', color="green")
     if is_DS==True:
-        pyplot.plot(dict_varphy["rmse_B2A"], label='B2A')
+        pyplot.plot(dict_varphy["rmse_B2A"], label='B2A', color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["rmse_B2A"]))
         pyplot.title("Best B2A at epoch " +  str(idx*10+1), fontsize=7)
     pyplot.legend()
@@ -812,7 +814,7 @@ def compute_matrix_real_rank(data):
 
 
 
-def train_combined_new(rank_version,PR_version,is_DS,genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, ind, lon, lat,point_grid,path_to_save ,XminA_=None,XmaxA_=None,XminB_=None,XmaxB_=None,n_epochs=100, n_batch=32):
+def train_combined_new(rank_version,PR_version,is_DS,computation_WD,genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, ind, lon, lat,point_grid,path_to_save ,XminA_=None,XmaxA_=None,XminB_=None,XmaxB_=None,n_epochs=100, n_batch=32):
     bat_per_epo = int(datasetA.shape[0] / n_batch)
     half_batch = int(n_batch / 2)
     # prepare lists for storing stats each iteration
@@ -877,10 +879,11 @@ def train_combined_new(rank_version,PR_version,is_DS,genA2B, genB2A, discA, disc
 
             dict_mae_mean, dict_mae_sd_rel, dict_mae_correlogram, dict_mae_correlogram_wt_remove = compute_and_plot_criteria_for_early_stopping(dict_mae_mean, dict_mae_sd_rel, dict_mae_correlogram, dict_mae_correlogram_wt_remove, rank_version,PR_version,i, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, genA2B,  XminA_, XmaxA_, XminB_, XmaxB_,ind, lon, lat,point_grid,path_plot=path_to_save)
 
-            dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, genA2B, genB2A, datasetA, datasetB,datasetQQ, OriginalA, OriginalB, OriginalQQ, XminA_, XmaxA_, XminB_, XmaxB_,dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd, ind, point_grid, path_to_save)
+            dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, computation_WD, genA2B, genB2A, datasetA, datasetB,datasetQQ, OriginalA, OriginalB, OriginalQQ, XminA_, XmaxA_, XminB_, XmaxB_,dict_rank_rmse, dict_varphy_rmse, dict_rank_wd, dict_varphy_wd, dict_realrank_wd, ind, point_grid, path_to_save)
 
             plot_dict_rmse(is_DS,dict_rank_rmse,dict_varphy_rmse,path_to_save)
-            plot_dict_wd(dict_rank_wd, dict_varphy_wd,dict_realrank_wd, path_to_save)
+            if computation_WD==True:
+                plot_dict_wd(dict_rank_wd, dict_varphy_wd,dict_realrank_wd, path_to_save)
             #plot history of criteria
             plot_history_criteria(dict_mae_mean, "mae_mean",-0.01,0.5,path_to_save)
             plot_history_criteria(dict_mae_sd_rel, "mae_sd_rel",-0.01,0.2,path_to_save)
