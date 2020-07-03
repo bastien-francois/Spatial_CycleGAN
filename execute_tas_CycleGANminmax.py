@@ -46,7 +46,7 @@ rank_version=False
 #rank_version=True
 
 #### Hyperparameters?: learning rate of disc and gen?
-list_lr_gen=[1e-4]
+list_lr_gen=[3e-4]
 list_lr_disc=[5e-6]
 
 Ref="SAFRAN"
@@ -55,16 +55,17 @@ Mod="IPSLMRbili"
 #### Wasserstein distances?
 computation_WD=False
 
-computation_localWD=True
+computation_localWD=False
+computation_localenergy=True
 
 #### Weights for valid, reconstruct and identity
-lambda_val=9
+lambda_val=1
 lambda_rec=10
 lambda_id=1
 
 
-nb_filters_disc=[64,64]
-nb_filters_gen=[64,64,64]
+nb_filters_disc=[64,128]
+nb_filters_gen=[64,128,256]
 
 ##################################################################
 ##### Automatized below according to the choices
@@ -127,13 +128,6 @@ else:
     datasetQQ,_,_,_,_,_,_,OriginalQQ=CycleGAN.load_RData_rank("tas_pr_day_PC0_"+BC1d+"_"+Ref+"_"+Mod+"_79_16_Paris",var_phys+"_day_PC0_" + BC1d + "_" + Ref + "_" + Mod + "_79_16_Paris",Ind_season)
 
 
-
-
-
-
-
-
-
 #################################################################
 # create the discriminator
 for lr_disc in list_lr_disc:
@@ -144,8 +138,8 @@ for lr_disc in list_lr_disc:
         discA = CycleGAN.define_discriminator(lr_disc=lr_disc, nb_filters= nb_filters_disc)
         discB = CycleGAN.define_discriminator(lr_disc=lr_disc, nb_filters = nb_filters_disc)
         # create the generator
-        genA2B = CycleGAN.define_generator(nb_filters=nb_filters_gen)
-        genB2A = CycleGAN.define_generator(nb_filters=nb_filters_gen)
+        genA2B = CycleGAN.define_generator(nb_filters=nb_filters_gen, rank_version)
+        genB2A = CycleGAN.define_generator(nb_filters=nb_filters_gen, rank_version)
         # create the gan
         comb_model = CycleGAN.define_combined(genA2B, genB2A, discA, discB,lr_gen=lr_gen, lambda_valid= lambda_val, lambda_reconstruct = lambda_rec, lambda_identity = lambda_id)
         # load image data
@@ -160,13 +154,13 @@ for lr_disc in list_lr_disc:
             new_arch="_new_arch"
         else:
             new_arch=""
-        new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_Relu_lval" + str(lambda_val) + "_lrec" + str(lambda_rec) + "_lid" + str(lambda_id) + "_new_avec_WDlocal" + new_arch
+        new_folder = var_phys + '_' + name_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_Relu_lval" + str(lambda_val) + "_lrec" + str(lambda_rec) + "_lid" + str(lambda_id) +  new_arch + "local_energy"
         makedirs(new_folder, exist_ok=True)
         makedirs(new_folder + '/models', exist_ok=True)
         makedirs(new_folder + '/diagnostic', exist_ok=True)
         path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+var_phys+"/"+season+"/"+new_folder
         #### Train CycleGAN
-        CycleGAN.train_combined_new(rank_version, PR_version,is_DS,computation_WD , computation_localWD, genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ ,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=6000) #####attention n_epochs
+        CycleGAN.train_combined_new(rank_version, PR_version,is_DS,computation_WD , computation_localWD, computation_localenergy, genA2B, genB2A, discA, discB, comb_model, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ ,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, XminA_=XminA_, XmaxA_=XmaxA_, XminB_= XminB_, XmaxB_ = XmaxB_, n_epochs=6000) #####attention n_epochs
 
 
 
