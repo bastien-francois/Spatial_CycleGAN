@@ -106,7 +106,6 @@ else:
     datasetA, LON_Paris, LAT_Paris, XminA_, XmaxA_, IND_Paris,point_max, OriginalA = CycleGAN.load_RData_rank("tas_pr_day_" + Mod + "_79_16_Paris",var_phys + "_day_" + Mod + "_79_16_Paris",Ind_season)
 
 
-
 #### Load Ref
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/" + Ref + "/")
 if(rank_version==False):
