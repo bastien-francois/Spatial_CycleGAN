@@ -279,7 +279,7 @@ def transform_back_in_array(data_matrix,ind,point_grid): #input: nb_var x time o
     return res_transform
 
 
-def compute_correlo(remove_spat_mean,data,ind,lon,lat,point_grid):
+def compute_correlo(remove_spat_mean,data,ind,lon,lat,point_grid, method="spearman"):
     ### needed in python
     data=np.transpose(data[:,:,:,0],(2,1,0))
     ### end in python
@@ -314,7 +314,11 @@ def compute_correlo(remove_spat_mean,data,ind,lon,lat,point_grid):
         Mat_daily_mean_removed=np.transpose(MatData)-means_expanded
     else:
         Mat_daily_mean_removed=np.transpose(MatData)
-    Cspearman,_ =spearmanr(Mat_daily_mean_removed)
+    if method == "spearman":
+        Cspearman,_ =spearmanr(Mat_daily_mean_removed)
+    if method =="pearson":
+        Cspearman =np.corrcoef(Mat_daily_mean_removed.T)
+    #### compute correlogram
     Res_Mean_corr=[]
     Res_Med_corr=[]
     Correlo_dist=[]
@@ -327,9 +331,9 @@ def compute_correlo(remove_spat_mean,data,ind,lon,lat,point_grid):
     Res_Mean_corr=np.array(Res_Mean_corr)
     Res_Med_corr=np.array(Res_Med_corr)
     Correlo_dist=np.array(Correlo_dist)
-    return Res_Mean_corr, Res_Med_corr, Correlo_dist
+    return Res_Mean_corr, Res_Med_corr, Correlo_dist, Cspearman
 
-def plot_maps(epoch,QQ2B_version, PR_version, mat_A, mat_B, mat_QQ, mat_X2B, mat_X2B_reordered, title, path_plot, subfolder, lon=np.array(range(28)), lat=np.array(range(28))):
+def plot_maps(epoch,QQ2B_version, PR_version, mat_A, mat_B, mat_QQ, mat_X2B, mat_mQQsX2B, title, path_plot, subfolder, lon=np.array(range(28)), lat=np.array(range(28))):
     if QQ2B_version==True:
         X_name="QQ"
     else:
@@ -338,22 +342,22 @@ def plot_maps(epoch,QQ2B_version, PR_version, mat_A, mat_B, mat_QQ, mat_X2B, mat
     mat_B = mat_B.astype(float)
     mat_QQ = mat_QQ.astype(float)
     mat_X2B = mat_X2B.astype(float)
-    mat_X2B_reordered = mat_X2B_reordered.astype(float)
+    mat_mQQsX2B = mat_mQQsX2B.astype(float)
     #### On inverse LON_LAT pour plotter correctement
     ####fliplr for (1,28,28), else flipud
     mat_A=np.fliplr(mat_A)
     mat_B=np.fliplr(mat_B)
     mat_QQ = np.fliplr(mat_QQ)
     mat_X2B=np.fliplr(mat_X2B)
-    mat_X2B_reordered = np.fliplr(mat_X2B_reordered)
+    mat_mQQsX2B = np.fliplr(mat_mQQsX2B)
     ### Plot
     #### Mean and sd / MAE ####
     if PR_version==False:
-        examples = vstack((mat_A, mat_B, mat_QQ, mat_X2B, mat_X2B_reordered, mat_A-mat_B, mat_B-mat_B, mat_QQ - mat_B, mat_X2B-mat_B, mat_X2B_reordered - mat_B))
-        names_=("A","B","QQ", X_name + "2B", X_name + "2B_reord.","A-B","B-B", "QQ-B",X_name + "2B-B", X_name + "2B_reord.-B")
+        examples = vstack((mat_A, mat_B, mat_QQ, mat_X2B, mat_mQQsX2B, mat_A-mat_B, mat_B-mat_B, mat_QQ - mat_B, mat_X2B-mat_B, mat_mQQsX2B - mat_B))
+        names_=("A","B","QQ", X_name + "2B", "mQQs" + X_name + "2B","A-B","B-B", "QQ-B",X_name + "2B-B", "mQQs" + X_name + "2B-B")
     else:
-        examples = vstack((mat_A, mat_B, mat_QQ, mat_X2B, mat_X2B_reordered, (mat_A-mat_B)/mat_B, (mat_B-mat_B)/mat_B, (mat_QQ-mat_B)/mat_B, (mat_X2B-mat_B)/mat_B,  (mat_X2B_reordered-mat_B)/mat_B))
-        names_=("A","B","QQ", X_name + "2B",X_name + "2B_reord.", "(A-B)/B","(B-B)/B","(QQ-B)/B","(" +X_name +"2B-B)/B", "(" +X_name +"2B_reord.-B)/B")
+        examples = vstack((mat_A, mat_B, mat_QQ, mat_X2B, mat_mQQsX2B, (mat_A-mat_B)/mat_B, (mat_B-mat_B)/mat_B, (mat_QQ-mat_B)/mat_B, (mat_X2B-mat_B)/mat_B,  (mat_mQQsX2B-mat_B)/mat_B))
+        names_=("A","B","QQ", X_name + "2B", "mQQs" + X_name + "2B", "(A-B)/B","(B-B)/B","(QQ-B)/B","(" +X_name +"2B-B)/B", "(mQQs" +X_name +"2B-B)/B")
     nchecks=5
 
     fig, axs = pyplot.subplots(2,nchecks, figsize=(14,8))
@@ -427,24 +431,24 @@ def plot_history_loss(epoch,QQ2B_version, nb_data_per_epoch,discX_hist, discB_hi
     pyplot.plot(validB_hist, label='loss-validB')
     pyplot.legend()
     pyplot.ylim((0,1))
-    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50), range(0,epoch+1,50))
+    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50*3), range(0,epoch+1,50*3))
     pyplot.subplot(4,1,2)
     pyplot.plot(np.array(recX_hist)*10, label='loss-rec' + X_name)
     pyplot.plot(np.array(recB_hist)*10, label='loss-recB')
     pyplot.legend()
     pyplot.ylim((0,1))
-    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50), range(0,epoch+1,50))
+    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50*3), range(0,epoch+1,50*3))
     pyplot.subplot(4, 1, 3)
     pyplot.plot(identX_hist, label='loss-ident' + X_name)
     pyplot.plot(identB_hist, label='loss-identB')
     pyplot.legend()
     pyplot.ylim((0,1))
-    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50), range(0,epoch+1,50))
+    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50*3), range(0,epoch+1,50*3))
     pyplot.subplot(4, 1, 4)
     pyplot.plot(weighted_hist, label='loss-weighted',color="green")
     pyplot.legend()
     pyplot.ylim((0,3))
-    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50), range(0,epoch+1,50))
+    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50*3), range(0,epoch+1,50*3))
     #save plot to file
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_gen_loss.png')
     pyplot.close()
@@ -455,35 +459,36 @@ def plot_history_loss(epoch,QQ2B_version, nb_data_per_epoch,discX_hist, discB_hi
     pyplot.plot(discB_hist, label='loss-discB')
     pyplot.legend()
     pyplot.ylim((0,1))
-    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50), range(0,epoch+1,50))
+    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50*3), range(0,epoch+1,50*3))
     pyplot.subplot(2, 1, 2)
     pyplot.plot(discX_acc_hist, label='disc' + X_name + '-acc')
     pyplot.plot(discB_acc_hist, label='discB-acc')
     pyplot.legend()
     pyplot.ylim((-0.1,1.1))
-    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50), range(0,epoch+1,50))
+    pyplot.xticks(range(0,(epoch+1)*nb_data_per_epoch,nb_data_per_epoch*50*3), range(0,epoch+1,50*3))
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_disc_loss.png')
     pyplot.close()
 
 
 
-def plot_history_criteria(QQ2B_version, dict_crit,title_crit,ylim1,ylim2,path_plot, subfolder):
+def plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_crit,title_crit,ylim1,ylim2,path_plot, subfolder):
     if QQ2B_version==True:
         X_name="QQ"
     else:
         X_name="A"
     #plot criteria mean
     pyplot.subplot(1, 1, 1)
-    pyplot.hlines(dict_crit["mae_A"][0],xmin=0, xmax=len(dict_crit["mae_X2B"]), label='A', color='red')
-    pyplot.hlines(dict_crit["mae_QQ"][0],xmin=0, xmax=len(dict_crit["mae_X2B"]), label='QQ', color='orange')
+    pyplot.hlines(dict_crit["mae_A"][0],xmin=0, xmax=len(dict_crit["mae_X2B"])-1, label='A', color='red')
+    pyplot.hlines(dict_crit["mae_QQ"][0],xmin=0, xmax=len(dict_crit["mae_X2B"])-1, label='QQ', color='orange')
     pyplot.plot(dict_crit["mae_X2B"], label= X_name + "2B", color="blue")
-    pyplot.plot(dict_crit["mae_X2B_reordered"], label= X_name + "2B_reord.", color="green")
+    pyplot.plot(dict_crit["mae_mQQsX2B"], label= "mQQs" + X_name + "2B", color="green")
     pyplot.legend()
     val, idx = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_X2B"]))
     pyplot.ylim((ylim1,ylim2))
     val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_X2B"]))
-    val_X2B_reordered, idx_X2B_reordered = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_X2B_reordered"]))
-    pyplot.title("A: " + str(round(dict_crit["mae_A"][0],2)) + ", QQ: " + str(round(dict_crit["mae_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*10+1) +  ", best " + X_name + "2B_reord.: " +  str(round(val_X2B_reordered,2)) + " at epo. "  +  str(idx_X2B_reordered*10+1) , fontsize=7)
+    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_mQQsX2B"]))
+    pyplot.title("A: " + str(round(dict_crit["mae_A"][0],2)) + ", QQ: " + str(round(dict_crit["mae_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*nb_epoch_for_eval+1) +  ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "  +  str(idx_mQQsX2B*nb_epoch_for_eval+1) , fontsize=7)
+    pyplot.xticks(range(0,len(dict_crit["mae_X2B"]),3), range(0,len(dict_crit["mae_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '.png')
     pyplot.close()
 
@@ -491,7 +496,7 @@ def plot_history_criteria(QQ2B_version, dict_crit,title_crit,ylim1,ylim2,path_pl
 
 
 def rmse(ref, pred):
-    return np.sum((ref.astype("float") - pred.astype("float")) **2)/(ref.shape[1]*ref.shape[2]*ref.shape[0])
+    return sqrt(np.sum((ref.astype("float") - pred.astype("float")) **2)/(ref.shape[1]*ref.shape[2]*ref.shape[0]))
 
 def compute_matrix_real_rank(data):
     res=np.copy(data)
@@ -527,7 +532,7 @@ def compute_some_rmse(QQ2B_version, is_DS,dict_rmse,sample_A, sample_B, sample_Q
 
 
 
-def plot_dict_rmse(QQ2B_version, is_DS,dict_norm, dict_varphy, path_plot, subfolder):
+def plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm, dict_varphy, path_plot, subfolder):
     if QQ2B_version==True:
         X_name="QQ"
     else:
@@ -540,15 +545,16 @@ def plot_dict_rmse(QQ2B_version, is_DS,dict_norm, dict_varphy, path_plot, subfol
     pyplot.plot(dict_norm["rmse_B2X2B"], label='B2' + X_name +'2B', color="red")
     pyplot.plot(dict_norm["rmse_X2B_B"], label= X_name + '2B_B', color= "green")
     if is_DS==True:
-        pyplot.hlines(dict_norm["rmse_QQ"],xmin=0, xmax=len(dict_norm["rmse_X2B"]), label='QQ', color='orange')
-        pyplot.hlines(dict_norm["rmse_A"],xmin=0, xmax=len(dict_norm["rmse_X2B"]), label='A',color='black')
+        pyplot.hlines(dict_norm["rmse_QQ"],xmin=0, xmax=len(dict_norm["rmse_X2B"])-1, label='QQ', color='orange')
+        pyplot.hlines(dict_norm["rmse_A"],xmin=0, xmax=len(dict_norm["rmse_X2B"])-1, label='A',color='black')
         pyplot.plot(dict_norm["rmse_X2B"], label=X_name + '2B', color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_norm["rmse_X2B"]))
-        pyplot.title("Best " + X_name + "2B at epoch " +  str(idx*10+1), fontsize=7)
+        pyplot.title("Best " + X_name + "2B at epoch " +  str(idx*nb_epoch_for_eval+1), fontsize=7)
 
     pyplot.legend()
     pyplot.yscale('log')
     pyplot.ylim((1e-7,1))
+    pyplot.xticks(range(0,len(dict_norm["rmse_X2B"]),3), range(0,len(dict_norm["rmse_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
 
     pyplot.subplot(2,1,2)
     pyplot.plot(dict_norm["rmse_X2B2X"], label= X_name + '2B2' + X_name, color="red")
@@ -556,10 +562,11 @@ def plot_dict_rmse(QQ2B_version, is_DS,dict_norm, dict_varphy, path_plot, subfol
     if is_DS==True:
         pyplot.plot(dict_norm["rmse_B2X"], label='B2' + X_name, color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_norm["rmse_B2X"]))
-        pyplot.title("Best B2X at epoch " +  str(idx*10+1), fontsize=7)
+        pyplot.title("Best B2X at epoch " +  str(idx*nb_epoch_for_eval+1), fontsize=7)
     pyplot.legend()
     pyplot.yscale('log')
     pyplot.ylim((1e-7,1))
+    pyplot.xticks(range(0,len(dict_norm["rmse_B2X"]),3), range(0,len(dict_norm["rmse_B2X"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
     #save plot to file
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_rmse_norm.png')
     pyplot.close()
@@ -570,14 +577,15 @@ def plot_dict_rmse(QQ2B_version, is_DS,dict_norm, dict_varphy, path_plot, subfol
     pyplot.plot(dict_varphy["rmse_B2X2B"], label='B2' + X_name +'2B', color="red")
     pyplot.plot(dict_varphy["rmse_X2B_B"], label= X_name + '2B_B', color="green")
     if is_DS==True:
-        pyplot.hlines(dict_varphy["rmse_QQ"],xmin=0, xmax=len(dict_varphy["rmse_X2B"]), label='QQ', color='orange')
-        pyplot.hlines(dict_varphy["rmse_A"],xmin=0, xmax=len(dict_varphy["rmse_X2B"]), label='A', color="black")
+        pyplot.hlines(dict_varphy["rmse_QQ"],xmin=0, xmax=len(dict_varphy["rmse_X2B"])-1, label='QQ', color='orange')
+        pyplot.hlines(dict_varphy["rmse_A"],xmin=0, xmax=len(dict_varphy["rmse_X2B"])-1, label='A', color="black")
         pyplot.plot(dict_varphy["rmse_X2B"], label=X_name + '2B', color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["rmse_X2B"]))
-        pyplot.title("Best " + X_name +"2B at epoch " +  str(idx*10+1), fontsize=7)
+        pyplot.title("Best " + X_name +"2B at epoch " +  str(idx*nb_epoch_for_eval+1), fontsize=7)
 
     pyplot.legend()
     pyplot.ylim((0,1))
+    pyplot.xticks(range(0,len(dict_varphy["rmse_X2B"]),3), range(0,len(dict_varphy["rmse_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
 
     pyplot.subplot(2,1,2)
     pyplot.plot(dict_varphy["rmse_X2B2X"], label= X_name + '2B2' + X_name, color="red")
@@ -585,9 +593,11 @@ def plot_dict_rmse(QQ2B_version, is_DS,dict_norm, dict_varphy, path_plot, subfol
     if is_DS==True:
         pyplot.plot(dict_varphy["rmse_B2X"], label='B2' + X_name, color="blue")
         val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["rmse_B2X"]))
-        pyplot.title("Best B2" + X_name + " at epoch " +  str(idx*10+1), fontsize=7)
+        pyplot.title("Best B2" + X_name + " at epoch " +  str(idx*nb_epoch_for_eval+1), fontsize=7)
     pyplot.legend()
     pyplot.ylim((0,1))
+    pyplot.xticks(range(0,len(dict_varphy["rmse_B2X"]),3), range(0,len(dict_varphy["rmse_B2X"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+
     #save plot to file
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_rmse_varphy.png')
     pyplot.close()
@@ -624,12 +634,12 @@ def compute_localenergy_array_new(data_A,data_B):
                 if l>0 and l<27:
                     smallA=flat_array(data_A[:,(k-1):(k+2),(l-1):(l+2),0])
                     smallB=flat_array(data_B[:,(k-1):(k+2),(l-1):(l+2),0])
-                    res_localenergy[:,k,l] = dcor.homogeneity.energy_test_statistic(np.transpose(smallA), np.transpose(smallB), exponent=1)
+                    res_localenergy[:,k,l] = sqrt(dcor.homogeneity.energy_test_statistic(np.transpose(smallA), np.transpose(smallB), exponent=1)*(2*nb_images)/(nb_images * nb_images)) #### formula, see Rizza and Szekely 2015
     res_localenergy = res_localenergy.astype(float)
     return res_localenergy
 
 
-def plot_maps_localWD(epoch, QQ2B_version, PR_version, mat_A, mat_QQ, mat_X2B, mat_X2B_reordered, title, path_plot, subfolder, nb_lon=27, nb_lat=27):
+def plot_maps_localWD(epoch, QQ2B_version, PR_version, mat_A, mat_QQ, mat_X2B, mat_mQQsX2B, title, path_plot, subfolder, nb_lon=27, nb_lat=27):
     if QQ2B_version==True:
         X_name="QQ"
     else:
@@ -637,24 +647,24 @@ def plot_maps_localWD(epoch, QQ2B_version, PR_version, mat_A, mat_QQ, mat_X2B, m
     mat_A = mat_A.astype(float)
     mat_QQ = mat_QQ.astype(float)
     mat_X2B = mat_X2B.astype(float)
-    mat_X2B_reordered = mat_X2B_reordered.astype(float)
+    mat_mQQsX2B = mat_mQQsX2B.astype(float)
     mat_A = mat_A[:,1:nb_lat,1:nb_lon]
     mat_QQ = mat_QQ[:, 1:nb_lat, 1:nb_lon]
     mat_X2B = mat_X2B[:, 1:nb_lat, 1:nb_lon]
-    mat_X2B_reordered = mat_X2B_reordered[:, 1:nb_lat, 1:nb_lon]
+    mat_mQQsX2B = mat_mQQsX2B[:, 1:nb_lat, 1:nb_lon]
     #### On inverse LON_LAT pour plotter correctement
     ####fliplr for (1,28,28), else flipud
     mat_A=np.fliplr(mat_A)
     mat_QQ=np.fliplr(mat_QQ)
     mat_X2B=np.fliplr(mat_X2B)
-    mat_X2B_reordered=np.fliplr(mat_X2B_reordered)
+    mat_mQQsX2B=np.fliplr(mat_mQQsX2B)
     #### Mean and sd / MAE ####
     if PR_version==False:
-        examples = vstack((mat_A, mat_QQ, mat_X2B, mat_X2B_reordered, mat_A-mat_QQ, mat_QQ-mat_QQ, mat_X2B-mat_QQ, mat_X2B_reordered-mat_QQ))
-        names_=("A","QQ",X_name + "2B", X_name + "2B_reord." ,"A-QQ","QQ-QQ",X_name + "2B-QQ", X_name + "2B_reord.-QQ")
+        examples = vstack((mat_A, mat_QQ, mat_X2B, mat_mQQsX2B, mat_A-mat_QQ, mat_QQ-mat_QQ, mat_X2B-mat_QQ, mat_mQQsX2B-mat_QQ))
+        names_=("A","QQ",X_name + "2B", "mQQs" + X_name + "2B" ,"A-QQ","QQ-QQ",X_name + "2B-QQ", "mQQs" + X_name + "2B-QQ")
     else:
-        examples = vstack((mat_A, mat_QQ, mat_X2B, mat_X2B_reordered, (mat_A-mat_QQ)/mat_QQ, (mat_QQ-mat_QQ)/mat_QQ, (mat_X2B-mat_QQ)/mat_QQ), (mat_X2B_reordered - mat_QQ)/mat_QQ)
-        names_=("A","QQ",X_name +"2B", X_name +"2B_reord.","(A-QQ)/QQ","(QQ-QQ)/QQ","(" + X_name + "2B-QQ)/QQ", "(" + X_name + "2B_reord.-QQ)/QQ")
+        examples = vstack((mat_A, mat_QQ, mat_X2B, mat_mQQsX2B, (mat_A-mat_QQ)/mat_QQ, (mat_QQ-mat_QQ)/mat_QQ, (mat_X2B-mat_QQ)/mat_QQ), (mat_mQQsX2B - mat_QQ)/mat_QQ)
+        names_=("A","QQ",X_name +"2B", "mQQs" + X_name +"2B","(A-QQ)/QQ","(QQ-QQ)/QQ","(" + X_name + "2B-QQ)/QQ", "(mQQs" + X_name + "2B-QQ)/QQ")
     nchecks=4
     fig, axs = pyplot.subplots(2,nchecks, figsize=(11, 8))
     cm = ['YlOrRd','RdBu']
@@ -688,7 +698,7 @@ def plot_maps_localWD(epoch, QQ2B_version, PR_version, mat_A, mat_QQ, mat_X2B, m
     pyplot.close()
 
 
-def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X, discB, datasetA,datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, minX, maxX, minB, maxB, dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB, ind, lon, lat,  point_grid, path_plot, subfolder, n_samples=8):
+def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X, discB, datasetA,datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, minX, maxX, minB, maxB, dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB, ind, lon, lat,  point_grid, path_plot, subfolder, nb_pas_escore, n_samples=8):
 
     def plot_raw_varphy(name_data, QQ2B_version, ix, epoch, PR_version, sample_A, sample_B, sample_QQ, sample_X2B, sample_B2X, sample_X2B2X, sample_B2X2B, sample_B2X_X, sample_X2B_B,n=n_samples):
         vmin = np.quantile(vstack((sample_A,sample_B)), 0.025)
@@ -862,24 +872,31 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
     #####################################################################################################################
     #### VARPHY_REORDERED ######## alla Cannon
     #####################################################################################################################
-    sample_varphy_reordered_X2B= np.copy(sample_varphy_X2B)
+    sample_varphy_mQQsX2B= np.copy(sample_varphy_X2B)
+    sample_varphy_mX2BsQQ= np.copy(sample_varphy_X2B)
 
-    def alla_Cannon(data_X2B, data_QQ): ### reorder data_QQ with struct. of data_X2B
-        res = np.copy(data_X2B)
+
+    def alla_Cannon(data_marg, data_struct): ### reorder data_marg with struct. of data_struct
+        res = np.copy(data_struct)
         for k in range(28):
             for l in range(28):
-                sorted_data_QQ=np.sort(data_QQ[:,k,l,0])
-                idx=rankdata(data_X2B[:,k,l,0],method="min")
+                sorted_data_marg=np.sort(data_marg[:,k,l,0])
+                idx=rankdata(data_struct[:,k,l,0],method="min")
                 idx=idx.astype(int)-1
-                res[:,k,l,0] = sorted_data_QQ[idx]
+                res[:,k,l,0] = sorted_data_marg[idx]
         return res
 
-    sample_varphy_reordered_X2B= alla_Cannon(sample_varphy_reordered_X2B, OriginalQQ)
+    sample_varphy_mQQsX2B= alla_Cannon(OriginalQQ, sample_varphy_mQQsX2B)
+    sample_varphy_mX2BsQQ= alla_Cannon(sample_varphy_mX2BsQQ, OriginalQQ)
+
 
     #### Preprocess!!!
     if PR_version==True:
-        sample_varphy_reordered_X2B[sample_varphy_reordered_X2B < 1] = 0
-    sample_realrank_varphy_reordered_X2B = compute_matrix_real_rank(sample_varphy_reordered_X2B) #should be the same as sample_realrank_X2B
+        sample_varphy_mQQsX2B[sample_varphy_mQQsX2B < 1] = 0
+        sample_varphy_mX2BsQQ[sample_varphy_mX2BsQQ < 1] = 0
+    sample_realrank_varphy_mQQsX2B = compute_matrix_real_rank(sample_varphy_mQQsX2B) #should be the same as sample_realrank_X2B
+    sample_realrank_varphy_mX2BsQQ = compute_matrix_real_rank(sample_varphy_mX2BsQQ)
+
 
     ######################################################################################################################
     #### PLOTS ####
@@ -896,14 +913,9 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
     dict_varphy_rmse=compute_some_rmse(QQ2B_version, is_DS,dict_varphy_rmse,OriginalA_preproc, OriginalB_preproc, OriginalQQ_preproc, sample_varphy_X2B, sample_varphy_B2X, sample_varphy_X2B2X, sample_varphy_B2X2B, sample_varphy_B2X_X, sample_varphy_X2B_B)
 
     #### Local energy ####
-    if computation_localenergy==True and (epoch % 50 ==0):
+    if computation_localenergy==True:
         nb_timestep=OriginalA_preproc.shape[0]
-        #if subfolder=="proj":
-        #    nb_pas=2
-        #else:
-        #    nb_pas=4
-        nb_pas = 1
-        coord_localenergy=range(0,nb_timestep,nb_pas)
+        coord_localenergy=range(0,nb_timestep,nb_pas_escore)
         #### For varphy
         if "maps_localenergy_A" not in dict_varphy_localenergy:
             maps_localenergy_A=compute_localenergy_array_new(OriginalA_preproc[coord_localenergy,:,:], OriginalB_preproc[coord_localenergy,:,:])
@@ -916,9 +928,11 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
 
         maps_localenergy_varphy_X2B =compute_localenergy_array_new(sample_varphy_X2B[coord_localenergy,:,:], OriginalB_preproc[coord_localenergy,:,:])
         dict_varphy_localenergy["energy_X2B"].append(np.nanmean(maps_localenergy_varphy_X2B))
-        maps_localenergy_varphy_reordered_X2B =compute_localenergy_array_new(sample_varphy_reordered_X2B[coord_localenergy,:,:], OriginalB_preproc[coord_localenergy,:,:])
-        dict_varphy_localenergy["energy_X2B_reordered"].append(np.nanmean(maps_localenergy_varphy_reordered_X2B))
-        plot_maps_localWD(epoch,QQ2B_version, False, dict_varphy_localenergy["maps_localenergy_A"], dict_varphy_localenergy["maps_localenergy_QQ"], maps_localenergy_varphy_X2B, maps_localenergy_varphy_reordered_X2B, "localenergy_varphy",path_plot=path_plot, subfolder = subfolder)
+        maps_localenergy_varphy_mQQsX2B =compute_localenergy_array_new(sample_varphy_mQQsX2B[coord_localenergy,:,:], OriginalB_preproc[coord_localenergy,:,:])
+        dict_varphy_localenergy["energy_mQQsX2B"].append(np.nanmean(maps_localenergy_varphy_mQQsX2B))
+        maps_localenergy_varphy_mX2BsQQ =compute_localenergy_array_new(sample_varphy_mX2BsQQ[coord_localenergy,:,:], OriginalB_preproc[coord_localenergy,:,:])
+        dict_varphy_localenergy["energy_mX2BsQQ"].append(np.nanmean(maps_localenergy_varphy_mX2BsQQ))
+        plot_maps_localWD(epoch,QQ2B_version, False, dict_varphy_localenergy["maps_localenergy_A"], dict_varphy_localenergy["maps_localenergy_QQ"], maps_localenergy_varphy_X2B, maps_localenergy_varphy_mQQsX2B, "localenergy_varphy",path_plot=path_plot, subfolder = subfolder)
 
         if "maps_localenergy_A" not in dict_realrank_localenergy:
             maps_localenergy_A=compute_localenergy_array_new(sample_realrank_A[coord_localenergy,:,:], sample_realrank_B[coord_localenergy,:,:])
@@ -931,9 +945,11 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
 
         maps_localenergy_varphy_X2B =compute_localenergy_array_new(sample_realrank_X2B[coord_localenergy,:,:], sample_realrank_B[coord_localenergy,:,:])
         dict_realrank_localenergy["energy_X2B"].append(np.nanmean(maps_localenergy_varphy_X2B))
-        maps_localenergy_varphy_reordered_X2B =compute_localenergy_array_new(sample_realrank_varphy_reordered_X2B[coord_localenergy,:,:], sample_realrank_B[coord_localenergy,:,:])
-        dict_realrank_localenergy["energy_X2B_reordered"].append(np.nanmean(maps_localenergy_varphy_reordered_X2B))
-        plot_maps_localWD(epoch,QQ2B_version, False, dict_realrank_localenergy["maps_localenergy_A"], dict_realrank_localenergy["maps_localenergy_QQ"], maps_localenergy_varphy_X2B, maps_localenergy_varphy_reordered_X2B, "localenergy_realrank",path_plot=path_plot, subfolder = subfolder)
+        maps_localenergy_varphy_mQQsX2B =compute_localenergy_array_new(sample_realrank_varphy_mQQsX2B[coord_localenergy,:,:], sample_realrank_B[coord_localenergy,:,:])
+        dict_realrank_localenergy["energy_mQQsX2B"].append(np.nanmean(maps_localenergy_varphy_mQQsX2B))
+        maps_localenergy_varphy_mX2BsQQ =compute_localenergy_array_new(sample_realrank_varphy_mX2BsQQ[coord_localenergy,:,:], sample_realrank_B[coord_localenergy,:,:])
+        dict_realrank_localenergy["energy_mX2BsQQ"].append(np.nanmean(maps_localenergy_varphy_mX2BsQQ))
+        plot_maps_localWD(epoch,QQ2B_version, False, dict_realrank_localenergy["maps_localenergy_A"], dict_realrank_localenergy["maps_localenergy_QQ"], maps_localenergy_varphy_X2B, maps_localenergy_varphy_mQQsX2B, "localenergy_realrank",path_plot=path_plot, subfolder = subfolder)
 
     #Compute Mean Sd criteria
     if "data_A" not in dict_mean:
@@ -950,27 +966,27 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
         dict_sd_rel["data_QQ"]= res_sd_datasetQQ
 
     res_mean_varphy_X2B, res_sd_rel_varphy_X2B = compute_mean_sd_array_new(sample_varphy_X2B)
-    res_mean_varphy_reordered_X2B, res_sd_rel_varphy_reordered_X2B = compute_mean_sd_array_new(sample_varphy_reordered_X2B)
+    res_mean_varphy_mQQsX2B, res_sd_rel_varphy_mQQsX2B = compute_mean_sd_array_new(sample_varphy_mQQsX2B)
 
     if PR_version==False:
         dict_mean["mae_X2B"].append(np.mean(abs(res_mean_varphy_X2B-dict_mean["data_B"])))
-        dict_mean["mae_X2B_reordered"].append(np.mean(abs(res_mean_varphy_reordered_X2B-dict_mean["data_B"])))
+        dict_mean["mae_mQQsX2B"].append(np.mean(abs(res_mean_varphy_mQQsX2B-dict_mean["data_B"])))
         dict_mean["mae_QQ"].append(np.mean(abs(dict_mean["data_QQ"] -dict_mean["data_B"])))
         dict_mean["mae_A"].append(np.mean(abs(dict_mean["data_A"] -dict_mean["data_B"])))
         title_="mean_tas"
     else:
         dict_mean["mae_X2B"].append(np.mean(abs((res_mean_varphy_X2B-dict_mean["data_B"])/dict_mean["data_B"])))
-        dict_mean["mae_X2B_reordered"].append(np.mean(abs((res_mean_varphy_reordered_X2B-dict_mean["data_B"])/dict_mean["data_B"])))
+        dict_mean["mae_mQQsX2B"].append(np.mean(abs((res_mean_varphy_mQQsX2B-dict_mean["data_B"])/dict_mean["data_B"])))
         dict_mean["mae_QQ"].append(np.mean(abs((dict_mean["data_QQ"]-dict_mean["data_B"])/dict_mean["data_B"])))
         dict_mean["mae_A"].append(np.mean(abs((dict_mean["data_A"]-dict_mean["data_B"])/dict_mean["data_B"])))
         title_="mean_pr"
 
     print("MAE X2B: " + str(round(dict_mean["mae_X2B"][-1],3)))
-    plot_maps(epoch,QQ2B_version, PR_version, dict_mean["data_A"], dict_mean["data_B"], dict_mean["data_QQ"] , res_mean_varphy_X2B, res_mean_varphy_reordered_X2B, title_,path_plot=path_plot, subfolder=subfolder)
+    plot_maps(epoch,QQ2B_version, PR_version, dict_mean["data_A"], dict_mean["data_B"], dict_mean["data_QQ"] , res_mean_varphy_X2B, res_mean_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
 
     #### SD ####
     dict_sd_rel["mae_X2B"].append(np.mean(abs((res_sd_rel_varphy_X2B-dict_sd_rel["data_B"])/dict_sd_rel["data_B"])))
-    dict_sd_rel["mae_X2B_reordered"].append(np.mean(abs((res_sd_rel_varphy_reordered_X2B-dict_sd_rel["data_B"])/dict_sd_rel["data_B"])))
+    dict_sd_rel["mae_mQQsX2B"].append(np.mean(abs((res_sd_rel_varphy_mQQsX2B-dict_sd_rel["data_B"])/dict_sd_rel["data_B"])))
     dict_sd_rel["mae_QQ"].append(np.mean(abs((dict_sd_rel["data_QQ"]-dict_sd_rel["data_B"])/dict_sd_rel["data_B"])))
     dict_sd_rel["mae_A"].append(np.mean(abs((dict_sd_rel["data_A"]-dict_sd_rel["data_B"])/dict_sd_rel["data_B"])))
     if PR_version==False:
@@ -978,7 +994,7 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
     else:
         title_="sd_pr"
 
-    plot_maps(epoch,QQ2B_version, True, dict_sd_rel["data_A"], dict_sd_rel["data_B"], dict_sd_rel["data_QQ"] , res_sd_rel_varphy_X2B, res_sd_rel_varphy_reordered_X2B, title_,path_plot=path_plot, subfolder=subfolder)
+    plot_maps(epoch,QQ2B_version, True, dict_sd_rel["data_A"], dict_sd_rel["data_B"], dict_sd_rel["data_QQ"] , res_sd_rel_varphy_X2B, res_sd_rel_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
 
 
     #### compute_freq_dry
@@ -987,41 +1003,48 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
         res_freqdrydatasetB = compute_freqdry_array_new(OriginalB_preproc)
         res_freqdrydatasetQQ = compute_freqdry_array_new(OriginalQQ_preproc)
         res_freqdry_varphy_X2B = compute_freqdry_array_new(sample_varphy_X2B)
-        res_freqdry_varphy_reordered_X2B = compute_freqdry_array_new(sample_varphy_reordered_X2B)
-        plot_maps(epoch, QQ2B_version, PR_version, res_freqdrydatasetA, res_freqdrydatasetB, res_freqdrydatasetQQ, res_freqdry_varphy_X2B, res_freqdry_varphy_reordered_X2B,"freqdry_pr", path_plot=path_plot, subfolder=subfolder)
+        res_freqdry_varphy_mQQsX2B = compute_freqdry_array_new(sample_varphy_mQQsX2B)
+        plot_maps(epoch, QQ2B_version, PR_version, res_freqdrydatasetA, res_freqdrydatasetB, res_freqdrydatasetQQ, res_freqdry_varphy_X2B, res_freqdry_varphy_mQQsX2B,"freqdry_pr", path_plot=path_plot, subfolder=subfolder)
 
     #Compute correlograms
     if "data_A" not in dict_correlogram:
-        res_correlo_datasetA, _, distance = compute_correlo(True,OriginalA_preproc, ind, lon, lat, point_grid)
-        res_correlo_wt_remove_datasetA, _, distance = compute_correlo(False,OriginalA_preproc, ind, lon, lat, point_grid)
+        res_correlo_datasetA, _, distance, CspearmanOriginalA = compute_correlo(True,OriginalA_preproc, ind, lon, lat, point_grid)
+        res_correlo_wt_remove_datasetA, _, distance, CspearmanOriginalA_wt_remove = compute_correlo(False,OriginalA_preproc, ind, lon, lat, point_grid)
         dict_correlogram["data_A"]=res_correlo_datasetA
+        dict_correlogram["CspearmanA"] = CspearmanOriginalA
         dict_correlogram_wt_remove["data_A"] = res_correlo_wt_remove_datasetA
+        dict_correlogram_wt_remove["CspearmanA"] = CspearmanOriginalA_wt_remove
 
-        res_correlo_datasetB, _, distance = compute_correlo(True,OriginalB_preproc, ind, lon, lat, point_grid)
-        res_correlo_wt_remove_datasetB, _, distance = compute_correlo(False,OriginalB_preproc, ind, lon, lat, point_grid)
+        res_correlo_datasetB, _, distance, CspearmanOriginalB = compute_correlo(True,OriginalB_preproc, ind, lon, lat, point_grid)
+        res_correlo_wt_remove_datasetB, _, distance, CspearmanOriginalB_wt_remove = compute_correlo(False,OriginalB_preproc, ind, lon, lat, point_grid)
         dict_correlogram["data_B"]=res_correlo_datasetB
+        dict_correlogram["CspearmanB"] = CspearmanOriginalB
         dict_correlogram_wt_remove["data_B"] = res_correlo_wt_remove_datasetB
+        dict_correlogram_wt_remove["CspearmanB"] = CspearmanOriginalB_wt_remove
 
-        res_correlo_datasetQQ, _, distance = compute_correlo(True,OriginalQQ_preproc, ind, lon, lat, point_grid)
-        res_correlo_wt_remove_datasetQQ, _, distance = compute_correlo(False,OriginalQQ_preproc, ind, lon, lat, point_grid)
+
+        res_correlo_datasetQQ, _, distance, CspearmanOriginalQQ = compute_correlo(True,OriginalQQ_preproc, ind, lon, lat, point_grid)
+        res_correlo_wt_remove_datasetQQ, _, distance, CspearmanOriginalQQ_wt_remove = compute_correlo(False,OriginalQQ_preproc, ind, lon, lat, point_grid)
         dict_correlogram["data_QQ"]=res_correlo_datasetQQ
+        dict_correlogram["CspearmanQQ"] = CspearmanOriginalQQ
         dict_correlogram_wt_remove["data_QQ"] = res_correlo_wt_remove_datasetQQ
+        dict_correlogram_wt_remove["CspearmanQQ"] = CspearmanOriginalQQ_wt_remove
 
-    res_correlo_varphy_X2B, _, distance = compute_correlo(True,sample_varphy_X2B, ind, lon, lat, point_grid)
-    res_correlo_wt_remove_varphy_X2B, _, distance = compute_correlo(False,sample_varphy_X2B, ind, lon, lat, point_grid)
+    res_correlo_varphy_X2B, _, distance, Cspearman_varphy_X2B = compute_correlo(True,sample_varphy_X2B, ind, lon, lat, point_grid)
+    res_correlo_wt_remove_varphy_X2B, _, distance, Cspearman_varphy_X2B_wt_remove = compute_correlo(False,sample_varphy_X2B, ind, lon, lat, point_grid)
 
-    res_correlo_varphy_reordered_X2B, _, distance = compute_correlo(True,sample_varphy_reordered_X2B, ind, lon, lat, point_grid)
-    res_correlo_wt_remove_varphy_reordered_X2B, _, distance = compute_correlo(False,sample_varphy_reordered_X2B, ind, lon, lat, point_grid)
+    res_correlo_varphy_mQQsX2B, _, distance, Cspearman_varphy_mQQsX2B = compute_correlo(True,sample_varphy_mQQsX2B, ind, lon, lat, point_grid)
+    res_correlo_wt_remove_varphy_mQQsX2B, _, distance, Cspearman_varphy_mQQsX2B_wt_remove = compute_correlo(False,sample_varphy_mQQsX2B, ind, lon, lat, point_grid)
 
     dict_correlogram["mae_A"].append(np.mean(abs(dict_correlogram["data_A"] -dict_correlogram["data_B"])))
     dict_correlogram["mae_QQ"].append(np.mean(abs(dict_correlogram["data_QQ"] -dict_correlogram["data_B"])))
     dict_correlogram["mae_X2B"].append(np.mean(abs(res_correlo_varphy_X2B-dict_correlogram["data_B"])))
-    dict_correlogram["mae_X2B_reordered"].append(np.mean(abs(res_correlo_varphy_reordered_X2B-dict_correlogram["data_B"])))
+    dict_correlogram["mae_mQQsX2B"].append(np.mean(abs(res_correlo_varphy_mQQsX2B-dict_correlogram["data_B"])))
 
     dict_correlogram_wt_remove["mae_A"].append(np.mean(abs(dict_correlogram_wt_remove["data_A"] -dict_correlogram_wt_remove["data_B"])))
     dict_correlogram_wt_remove["mae_QQ"].append(np.mean(abs(dict_correlogram_wt_remove["data_QQ"] -dict_correlogram_wt_remove["data_B"])))
     dict_correlogram_wt_remove["mae_X2B"].append(np.mean(abs(res_correlo_wt_remove_varphy_X2B-dict_correlogram_wt_remove["data_B"])))
-    dict_correlogram_wt_remove["mae_X2B_reordered"].append(np.mean(abs(res_correlo_wt_remove_varphy_reordered_X2B-dict_correlogram_wt_remove["data_B"])))
+    dict_correlogram_wt_remove["mae_mQQsX2B"].append(np.mean(abs(res_correlo_wt_remove_varphy_mQQsX2B-dict_correlogram_wt_remove["data_B"])))
 
     if QQ2B_version==True:
         X_name="QQ"
@@ -1034,11 +1057,11 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
     pyplot.plot(distance,dict_correlogram["data_B"],color="black")
     pyplot.plot(distance,dict_correlogram["data_QQ"], color= "orange")
     pyplot.plot(distance,res_correlo_varphy_X2B,color="blue")
-    pyplot.plot(distance,res_correlo_varphy_reordered_X2B,color="green")
-    pyplot.legend(['A', 'B', 'QQ', X_name + '2B', X_name + '2B_reord.'], loc='upper right')
-    pyplot.title('MAE A: ' + str(round(dict_correlogram["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram["mae_QQ"][-1],3))+ ', ' + X_name + '2B: ' +str(round(dict_correlogram["mae_X2B"][-1],3)) + ', ' + X_name + '2B_reord.: ' + str(round(dict_correlogram["mae_X2B_reordered"][-1],3))  ,fontsize=10, y=1)
+    pyplot.plot(distance,res_correlo_varphy_mQQsX2B,color="green")
+    pyplot.legend(['A', 'B', 'QQ', X_name + '2B', 'mQQs' + X_name + '2B'], loc='upper right')
+    pyplot.title('MAE A: ' + str(round(dict_correlogram["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram["mae_QQ"][-1],3))+ ', ' + X_name + '2B: ' +str(round(dict_correlogram["mae_X2B"][-1],3)) + ', mQQs' + X_name + '2B: ' + str(round(dict_correlogram["mae_mQQsX2B"][-1],3))  ,fontsize=10, y=1)
     pyplot.ylim((-1,1.05))
-    pyplot.ylabel(name_var + " Spearman spatial Corr")
+    pyplot.ylabel(name_var + " Spearman spatial corr.")
     pyplot.xlabel("Distance (km)")
 
     pyplot.subplot(2, 1, 2)
@@ -1046,15 +1069,96 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
     pyplot.plot(distance,dict_correlogram_wt_remove["data_B"],color="black")
     pyplot.plot(distance,dict_correlogram_wt_remove["data_QQ"],color="orange")
     pyplot.plot(distance,res_correlo_wt_remove_varphy_X2B,color="blue")
-    pyplot.plot(distance,res_correlo_wt_remove_varphy_reordered_X2B,color="green")
-    pyplot.legend(['A', 'B', 'QQ',  X_name + '2B', X_name + '2B_reord.'], loc='lower right')
-    pyplot.title('MAE A: ' + str(round(dict_correlogram_wt_remove["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram_wt_remove["mae_QQ"][-1],3)) +', ' + X_name + '2B: ' +str(round(dict_correlogram_wt_remove["mae_X2B"][-1],3)) + ', ' + X_name + '2B_reord.: ' + str(round(dict_correlogram_wt_remove["mae_X2B_reordered"][-1],3)) ,fontsize=10, y=1)
+    pyplot.plot(distance,res_correlo_wt_remove_varphy_mQQsX2B,color="green")
+    pyplot.legend(['A', 'B', 'QQ',  X_name + '2B', 'mQQs' + X_name + '2B'], loc='lower right')
+    pyplot.title('MAE A: ' + str(round(dict_correlogram_wt_remove["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram_wt_remove["mae_QQ"][-1],3)) +', ' + X_name + '2B: ' +str(round(dict_correlogram_wt_remove["mae_X2B"][-1],3)) + ', mQQs' + X_name + '2B: ' + str(round(dict_correlogram_wt_remove["mae_mQQsX2B"][-1],3)) ,fontsize=10, y=1)
     pyplot.ylim((0.5,1.05))
-    pyplot.ylabel(name_var + " Spearman spatial Corr")
+    pyplot.ylabel(name_var + " Spearman spatial corr.")
     pyplot.xlabel("Distance (km)")
 
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '_%03d.png' % (epoch+1))
     pyplot.close()
+
+    #### Plot Scatterplots for Cspearman and MSE ####
+    pyplot.figure(figsize=(9,10))
+    title_crit="scatterplots_corrspearman"
+    pyplot.subplot(2, 1, 1)
+    pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),dict_correlogram["CspearmanA"].flatten() , c = 'red', s=20, alpha= 1, label = "A", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),dict_correlogram["CspearmanQQ"].flatten(), c = 'orange', s=20, alpha= 1, label = "QQ", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),Cspearman_varphy_X2B.flatten(), c = 'blue',  s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram["CspearmanB"].flatten(), Cspearman_varphy_mQQsX2B.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    zlim_min = np.min(np.concatenate((dict_correlogram["CspearmanB"],dict_correlogram["CspearmanA"], dict_correlogram["CspearmanQQ"], Cspearman_varphy_X2B, Cspearman_varphy_mQQsX2B)))
+    zlim_max = np.max(np.concatenate((dict_correlogram["CspearmanB"],dict_correlogram["CspearmanA"], dict_correlogram["CspearmanQQ"], Cspearman_varphy_X2B, Cspearman_varphy_mQQsX2B)))
+    pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
+    pyplot.legend(loc = 'upper left')
+    pyplot.ylabel("Model Spearman spatial corr. ("+ name_var + ")")
+    pyplot.xlabel("Observed Spearman spatial corr. ("+ name_var + ")")
+
+    pyplot.subplot(2,1,2)
+    pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),dict_correlogram_wt_remove["CspearmanA"].flatten() , c = 'red', s=20, alpha= 1, label = "A", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),dict_correlogram_wt_remove["CspearmanQQ"].flatten(), c = 'orange', s=20, alpha= 1, label = "QQ", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),Cspearman_varphy_X2B_wt_remove.flatten(), c = 'blue',  s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(), Cspearman_varphy_mQQsX2B_wt_remove.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    zlim_min = np.min(np.concatenate((dict_correlogram_wt_remove["CspearmanB"], dict_correlogram_wt_remove["CspearmanA"], dict_correlogram_wt_remove["CspearmanQQ"], Cspearman_varphy_X2B_wt_remove, Cspearman_varphy_mQQsX2B_wt_remove)))
+    zlim_max = np.max(np.concatenate((dict_correlogram_wt_remove["CspearmanB"], dict_correlogram_wt_remove["CspearmanA"], dict_correlogram_wt_remove["CspearmanQQ"], Cspearman_varphy_X2B_wt_remove, Cspearman_varphy_mQQsX2B_wt_remove)))
+    pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
+    pyplot.legend(loc = 'upper left')
+    pyplot.ylabel("Model Spearman spatial corr. ("+ name_var + ")")
+    pyplot.xlabel("Observed Spearman spatial corr. ("+ name_var + ")")
+
+    pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '_%03d.png' % (epoch+1))
+    pyplot.close()
+
+    ##### MSE Cspearman #### MSE by row of the correlation matrix
+    def mse_Cspearman(ref, pred):
+        res = []
+        for k in range(ref.shape[0]):
+            res.append(np.sum((ref[k,:].astype("float") - pred[k,:].astype("float")) **2)/(ref.shape[0]))
+        res = np.asarray(res)
+        return res
+
+    mse_CspearmanOriginalA = mse_Cspearman(dict_correlogram["CspearmanB"], dict_correlogram["CspearmanA"])
+    mse_CspearmanOriginalQQ = mse_Cspearman(dict_correlogram["CspearmanB"], dict_correlogram["CspearmanQQ"])
+    mse_Cspearman_varphy_X2B = mse_Cspearman(dict_correlogram["CspearmanB"], Cspearman_varphy_X2B)
+    mse_Cspearman_varphy_mQQsX2B = mse_Cspearman(dict_correlogram["CspearmanB"], Cspearman_varphy_mQQsX2B)
+
+    mse_CspearmanOriginalA_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"],dict_correlogram_wt_remove["CspearmanA"])
+    mse_CspearmanOriginalQQ_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"],dict_correlogram_wt_remove["CspearmanQQ"])
+    mse_Cspearman_varphy_X2B_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"], Cspearman_varphy_X2B_wt_remove)
+    mse_Cspearman_varphy_mQQsX2B_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"], Cspearman_varphy_mQQsX2B_wt_remove)
+
+
+    pyplot.figure(figsize=(9,10))
+    pyplot.subplot(2, 1, 1)
+    title_crit="scatterplots_mse_corrspearman"
+
+    pyplot.scatter(mse_CspearmanOriginalA.flatten(),mse_CspearmanOriginalQQ.flatten() , c = 'orange', s=20, alpha= 1, label = "QQ", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(mse_CspearmanOriginalA.flatten(),mse_Cspearman_varphy_X2B.flatten(), c = 'blue', s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(mse_CspearmanOriginalA.flatten(),mse_Cspearman_varphy_mQQsX2B.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    zlim_min = np.min(np.concatenate((mse_CspearmanOriginalA,mse_CspearmanOriginalQQ, mse_Cspearman_varphy_X2B, mse_Cspearman_varphy_mQQsX2B)))
+    zlim_max = np.max(np.concatenate((mse_CspearmanOriginalA,mse_CspearmanOriginalQQ, mse_Cspearman_varphy_X2B, mse_Cspearman_varphy_mQQsX2B)))
+    pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
+    pyplot.legend(loc = 'upper left')
+    pyplot.ylabel(name_var + " MSE (Bias corrected)")
+    pyplot.xlabel(name_var + " MSE (A)")
+
+    pyplot.subplot(2, 1, 2)
+    pyplot.scatter(mse_CspearmanOriginalA_wt_remove.flatten(),mse_CspearmanOriginalQQ_wt_remove.flatten() , c = 'orange', s=20, alpha= 1, label = "QQ", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(mse_CspearmanOriginalA_wt_remove.flatten(),mse_Cspearman_varphy_X2B_wt_remove.flatten(), c = 'blue', s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(mse_CspearmanOriginalA_wt_remove.flatten(),mse_Cspearman_varphy_mQQsX2B_wt_remove.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    zlim_min = np.min(np.concatenate((mse_CspearmanOriginalA_wt_remove,mse_CspearmanOriginalQQ_wt_remove, mse_Cspearman_varphy_X2B_wt_remove, mse_Cspearman_varphy_mQQsX2B_wt_remove)))
+    zlim_max = np.max(np.concatenate((mse_CspearmanOriginalA_wt_remove,mse_CspearmanOriginalQQ_wt_remove, mse_Cspearman_varphy_X2B_wt_remove, mse_Cspearman_varphy_mQQsX2B_wt_remove)))
+    pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
+    pyplot.legend(loc = 'upper left')
+    pyplot.ylabel(name_var + " MSE (Bias corrected)")
+    pyplot.xlabel(name_var + " MSE (A)")
+
+    pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '_%03d.png' % (epoch+1))
+    pyplot.close()
+
+
+
+
 
     #### Score_discB ####
     def compute_score_discB(dict_score, disc, data):
@@ -1078,7 +1182,6 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
 
         return dict_score
 
-    #keys_score_discB = ["score_discB_A","score_discB_X2B", "score_discB_QQ", "score_discB_X2B_reordered"]
     dict_score_discB["score_discB_A"] = compute_score_discB(dict_score_discB["score_discB_A"], discB, datasetA)
     dict_score_discB["score_discB_B"] = compute_score_discB(dict_score_discB["score_discB_B"], discB, datasetB)
     dict_score_discB["score_discB_QQ"] = compute_score_discB(dict_score_discB["score_discB_QQ"], discB, datasetQQ)
@@ -1093,8 +1196,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, Q
                 res[:,k,l,:] = (data[:,k,l,:]- minX[n])/(maxX[n] - minX[n])
         return res
 
-    sample_reordered_X2B = normalize_minmax(sample_varphy_reordered_X2B, minX, maxX)
-    dict_score_discB["score_discB_X2B_reordered"] = compute_score_discB(dict_score_discB["score_discB_X2B_reordered"], discB, sample_reordered_X2B)
+    sample_mQQsX2B = normalize_minmax(sample_varphy_mQQsX2B, minX, maxX)
+    dict_score_discB["score_discB_mQQsX2B"] = compute_score_discB(dict_score_discB["score_discB_mQQsX2B"], discB, sample_mQQsX2B)
 
     plot_dict_score_discB(QQ2B_version, dict_score_discB, path_plot, subfolder)
 
@@ -1110,28 +1213,13 @@ def plot_dict_score_discB(QQ2B_version, dict_score, path_plot, subfolder):
     np.save(path_plot+'/models/score_discB_dict_' + subfolder + '.npy',dict_score)
     pyplot.figure(figsize=(11,5))
     pyplot.subplot(1,1,1)
-    pyplot.hlines([0.5],xmin=0, xmax=len(dict_score["score_discB_A"]["mean"]), color= "black", linestyles = "dotted")
+    pyplot.hlines([0.5],xmin=0, xmax=len(dict_score["score_discB_A"]["mean"])-1, color= "black", linestyles = "dotted")
 
     pyplot.plot(dict_score["score_discB_A"]["mean"],label='A', color= "red")
-   # pyplot.plot(dict_score["score_discB_A"]["quant0.025"],label='', color= "darksalmon")
-   # pyplot.plot(dict_score["score_discB_A"]["quant0.975"],label='', color= "darksalmon")
-
     pyplot.plot(dict_score["score_discB_B"]["mean"],label='B', color= "black")
-   # pyplot.plot(dict_score["score_discB_B"]["quant0.025"],label='', color= "grey")
-   # pyplot.plot(dict_score["score_discB_B"]["quant0.975"],label='', color= "grey")
-
     pyplot.plot(dict_score["score_discB_QQ"]["mean"],label='QQ', color= "orange")
-    #pyplot.plot(dict_score["score_discB_QQ"]["quant0.025"],label='', color= "navajowhite")
-    #pyplot.plot(dict_score["score_discB_QQ"]["quant0.975"],label='', color= "navajowhite")
-
     pyplot.plot(dict_score["score_discB_X2B"]["mean"],label= X_name + '2B', color= "blue")
-    #pyplot.plot(dict_score["score_discB_X2B"]["quant0.025"],label='', color= "lightsteelblue")
-    #pyplot.plot(dict_score["score_discB_X2B"]["quant0.975"],label='', color= "lightsteelblue")
-
-    pyplot.plot(dict_score["score_discB_X2B_reordered"]["mean"],label=X_name + '2B_reord.', color= "green")
-    #pyplot.plot(dict_score["score_discB_X2B_reordered"]["quant0.025"],label='', color= "lightgreen")
-    #pyplot.plot(dict_score["score_discB_X2B_reordered"]["quant0.975"],label='', color= "lightgreen")
-
+    pyplot.plot(dict_score["score_discB_mQQsX2B"]["mean"],label= 'mQQs' + X_name + '2B', color= "green")
     pyplot.legend()
     pyplot.ylim((0,1))
 
@@ -1140,13 +1228,13 @@ def plot_dict_score_discB(QQ2B_version, dict_score, path_plot, subfolder):
 
     pyplot.figure(figsize=(11,5))
     pyplot.subplot(1,1,1)
-    pyplot.hlines([0.5],xmin=0, xmax=len(dict_score["score_discB_A"]["mean"]), color= "black", linestyles = "dotted")
+    pyplot.hlines([0.5],xmin=0, xmax=len(dict_score["score_discB_A"]["mean"])-1, color= "black", linestyles = "dotted")
 
     pyplot.plot(dict_score["score_discB_A"]["accuracy"],label='A', color= "red")
     pyplot.plot(dict_score["score_discB_B"]["accuracy"],label='B', color= "black")
     pyplot.plot(dict_score["score_discB_QQ"]["accuracy"],label='QQ', color= "orange")
     pyplot.plot(dict_score["score_discB_X2B"]["accuracy"],label= X_name + '2B', color= "blue")
-    pyplot.plot(dict_score["score_discB_X2B_reordered"]["accuracy"],label=X_name + '2B_reord.', color= "green")
+    pyplot.plot(dict_score["score_discB_mQQsX2B"]["accuracy"],label='mQQs' + X_name + '2B', color= "green")
 
     pyplot.legend()
     pyplot.ylim((0,1))
@@ -1159,7 +1247,7 @@ def plot_dict_score_discB(QQ2B_version, dict_score, path_plot, subfolder):
 
 
 
-def plot_dict_localenergy(QQ2B_version,dict_varphy_localenergy, dict_realrank_localenergy, path_plot, subfolder):
+def plot_dict_localenergy(QQ2B_version,nb_epoch_for_eval, nb_pas_escore, dict_varphy_localenergy, dict_realrank_localenergy, path_plot, subfolder):
     if QQ2B_version==True:
         X_name="QQ"
     else:
@@ -1168,33 +1256,38 @@ def plot_dict_localenergy(QQ2B_version,dict_varphy_localenergy, dict_realrank_lo
     np.save(path_plot+'/models/energy_dict_realrank_localenergy' + subfolder + '.npy',dict_realrank_localenergy)
     pyplot.figure(figsize=(11,11))
     pyplot.subplot(2,1,1)
-    pyplot.hlines(dict_varphy_localenergy["energy_A"],xmin=0, xmax=len(dict_varphy_localenergy["energy_X2B"]),label='varphy_A', color= "red")
-    pyplot.hlines(dict_varphy_localenergy["energy_QQ"],xmin=0, xmax=len(dict_varphy_localenergy["energy_X2B"]), label='varphy_QQ',color='orange')
+    pyplot.hlines(dict_varphy_localenergy["energy_A"],xmin=0, xmax=len(dict_varphy_localenergy["energy_X2B"])-1,label='varphy_A', color= "red")
+    pyplot.hlines(dict_varphy_localenergy["energy_QQ"],xmin=0, xmax=len(dict_varphy_localenergy["energy_X2B"])-1, label='varphy_QQ',color='orange')
     pyplot.plot(dict_varphy_localenergy["energy_X2B"], label='varphy_' + X_name + '2B', color= "blue")
-    pyplot.plot(dict_varphy_localenergy["energy_X2B_reordered"], label='varphy_' + X_name + '2B_reord.', color= "green")
+    pyplot.plot(dict_varphy_localenergy["energy_mQQsX2B"], label='varphy_mQQs' + X_name + '2B', color= "green")
+    pyplot.plot(dict_varphy_localenergy["energy_mX2BsQQ"], label='varphy_m' + X_name + '2BsQQ', color= "purple")
     val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_varphy_localenergy["energy_X2B"]))
-    val_X2B_reordered, idx_X2B_reordered = min((val, idx) for (idx, val) in enumerate(dict_varphy_localenergy["energy_X2B_reordered"]))
-    pyplot.title("A: " + str(round(dict_varphy_localenergy["energy_A"][0],2)) + ", QQ: " + str(round(dict_varphy_localenergy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " + str(round(val_X2B,2)) + " at epo. "+  str(idx_X2B*10+1) + ", best " + X_name + "2B_reord.: " +  str(round(val_X2B_reordered,2)) + " at epo. "+  str(idx_X2B_reordered*10+1), fontsize=7)
+    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_varphy_localenergy["energy_mQQsX2B"]))
+    pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_varphy_localenergy["energy_A"][0],2)) + ", QQ: " + str(round(dict_varphy_localenergy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " + str(round(val_X2B,2)) + " at epo. "+  str(idx_X2B*nb_epoch_for_eval+1) + ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "+  str(idx_mQQsX2B*nb_epoch_for_eval+1), fontsize=7)
     pyplot.legend()
     pyplot.ylim((0,dict_varphy_localenergy["energy_QQ"][0]*2))
+    pyplot.xticks(range(0,len(dict_varphy_localenergy["energy_X2B"]),3), range(0,len(dict_varphy_localenergy["energy_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
 
     pyplot.subplot(2,1,2)
-    pyplot.hlines(dict_realrank_localenergy["energy_A"],xmin=0, xmax=len(dict_realrank_localenergy["energy_X2B"]),label='realrank_A', color= "red")
-    pyplot.hlines(dict_realrank_localenergy["energy_QQ"],xmin=0, xmax=len(dict_realrank_localenergy["energy_X2B"]), label='realrank_QQ',color='orange')
+    pyplot.hlines(dict_realrank_localenergy["energy_A"],xmin=0, xmax=len(dict_realrank_localenergy["energy_X2B"])-1,label='realrank_A', color= "red")
+    pyplot.hlines(dict_realrank_localenergy["energy_QQ"],xmin=0, xmax=len(dict_realrank_localenergy["energy_X2B"])-1, label='realrank_QQ',color='orange')
     pyplot.plot(dict_realrank_localenergy["energy_X2B"], label='realrank_' + X_name + '2B', color= "blue")
-    pyplot.plot(dict_realrank_localenergy["energy_X2B_reordered"], label='realrank_' + X_name + '2B_reord.', color= "green")
+    pyplot.plot(dict_realrank_localenergy["energy_mQQsX2B"], label='realrank_mQQs' + X_name + '2B', color= "green")
+    pyplot.plot(dict_realrank_localenergy["energy_mX2BsQQ"], label='realrank_m' + X_name + '2BsQQ', color= "purple")
     val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_realrank_localenergy["energy_X2B"]))
-    val_X2B_reordered, idx_X2B_reordered = min((val, idx) for (idx, val) in enumerate(dict_realrank_localenergy["energy_X2B_reordered"]))
-    pyplot.title("A: " + str(round(dict_realrank_localenergy["energy_A"][0],2)) + ", QQ: " + str(round(dict_realrank_localenergy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*10+1) +  ", best " + X_name + "2B_reord.: " +  str(round(val_X2B_reordered,2)) + " at epo. "  +  str(idx_X2B_reordered*10+1) , fontsize=7)
+    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_realrank_localenergy["energy_mQQsX2B"]))
+    pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_realrank_localenergy["energy_A"][0],2)) + ", QQ: " + str(round(dict_realrank_localenergy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*nb_epoch_for_eval+1) +  ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "  +  str(idx_mQQsX2B*nb_epoch_for_eval+1) , fontsize=7)
     pyplot.legend()
     pyplot.ylim((0,dict_realrank_localenergy["energy_QQ"][0]*2))
-  #save plot to file
+    pyplot.xticks(range(0,len(dict_varphy_localenergy["energy_X2B"]),3), range(0,len(dict_varphy_localenergy["energy_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+
+ #save plot to file
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_localenergy.png')
     pyplot.close()
 
 
 
-def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS, computation_localWD, computation_localenergy, genX2B, genB2X, discX, discB, comb_model, CalibA, CalibB, CalibQQ, ProjA, ProjB, ProjQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalProjA, OriginalProjB, OriginalProjQQ, ind, lon, lat,point_grid,path_to_save ,minX=None,maxX=None,minB=None,maxB=None,n_epochs=100, n_batch=32):
+def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS, computation_localWD, computation_localenergy, genX2B, genB2X, discX, discB, comb_model, CalibA, CalibB, CalibQQ, ProjA, ProjB, ProjQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalProjA, OriginalProjB, OriginalProjQQ, ind, lon, lat,point_grid,path_to_save ,minX=None,maxX=None,minB=None,maxB=None,n_epochs=1000, n_batch=32, nb_epoch_for_eval=100, nb_pas_escore = 1):
 
     #### Define train and validation set
     trainsetB = np.copy(CalibB)
@@ -1214,7 +1307,7 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
     ##########################################################################
     #### Calib dict ####
     #### Init dict for mae
-    keys_mae = ["mae_A", "mae_QQ", "mae_X2B", "mae_X2B_reordered"]
+    keys_mae = ["mae_A", "mae_QQ", "mae_X2B", "mae_mQQsX2B"]
     dict_mean = {key: [] for key in keys_mae}
     dict_sd_rel = {key: [] for key in keys_mae}
     dict_correlogram = {key: [] for key in keys_mae}
@@ -1232,12 +1325,12 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
         dict_realrank_localwd["bin_size"]=[0.05]*9
 
     #### Init dict for localenergy
-    keys_energy = ["energy_A","energy_X2B", "energy_QQ", "energy_X2B_reordered"]
+    keys_energy = ["energy_A","energy_X2B", "energy_QQ", "energy_mQQsX2B", "energy_mX2BsQQ"]
     dict_varphy_localenergy = {key: [] for key in keys_energy}
     dict_realrank_localenergy = {key: [] for key in keys_energy}
 
     #### Init dict for score_discB
-    keys_score_discB = ["score_discB_A", "score_discB_B","score_discB_X2B", "score_discB_QQ", "score_discB_X2B_reordered"]
+    keys_score_discB = ["score_discB_A", "score_discB_B","score_discB_X2B", "score_discB_QQ", "score_discB_mQQsX2B"]
     dict_score_discB = {key: {} for key in keys_score_discB}
 
 
@@ -1303,43 +1396,43 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
         print('Weighted sum: ' + str(all_loss[0]))
         nb_data_per_epoch=int(bat_per_epo/n_modulo)
         plot_history_loss(i,QQ2B_version, nb_data_per_epoch,discX_hist, discB_hist, validX_hist, validB_hist, recX_hist, recB_hist, identX_hist, identB_hist, weighted_hist, discX_acc_hist, discB_acc_hist, path_plot=path_to_save, subfolder= "calib")
-        if (i+1) % 10 == 1:
+
+        if (i+1) % nb_epoch_for_eval == 1:
             recap_accuracy_and_save_gendisc(i,genX2B, genB2X, discX, discB, trainsetX, trainsetB, path_plot=path_to_save, n_samples=100)
 
             ######################################
             #### Evaluation of training data #####
             print("eval calib")
-            dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X,discB, CalibA, CalibB, CalibQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, minX, maxX, minB, maxB,dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "calib")
+            dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X,discB, CalibA, CalibB, CalibQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, minX, maxX, minB, maxB,dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "calib", nb_pas_escore = nb_pas_escore)
 
-            plot_dict_rmse(QQ2B_version, is_DS,dict_norm_rmse,dict_varphy_rmse,path_to_save, subfolder="calib")
-            if computation_localWD==True:
-                plot_dict_localwdenergy(dict_realrank_localwd,dict_realrank_localenergy,path_to_save, subfolder= "calib")
+            plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm_rmse,dict_varphy_rmse,path_to_save, subfolder="calib")
+            #if computation_localWD==True:
+            #    plot_dict_localwdenergy(dict_realrank_localwd,dict_realrank_localenergy,path_to_save, subfolder= "calib")
             if computation_localenergy==True:
-                plot_dict_localenergy(QQ2B_version, dict_varphy_localenergy,dict_realrank_localenergy,path_to_save, subfolder = "calib")
+                plot_dict_localenergy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, dict_varphy_localenergy,dict_realrank_localenergy,path_to_save, subfolder = "calib")
             #plot history of criteria
-            plot_history_criteria(QQ2B_version,dict_mean, "mae_mean",-0.01,1.5,path_to_save, subfolder= "calib")
-            plot_history_criteria(QQ2B_version, dict_sd_rel, "mae_sd_rel",-0.01,0.2,path_to_save, subfolder= "calib")
-            plot_history_criteria(QQ2B_version, dict_correlogram, "mae_correlogram",-0.01,dict_correlogram["mae_QQ"][0]*2,path_to_save, subfolder="calib")
-            plot_history_criteria(QQ2B_version, dict_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,dict_correlogram_wt_remove["mae_QQ"][0]*2,path_to_save, subfolder= "calib")
+            plot_history_criteria(QQ2B_version, nb_epoch_for_eval,dict_mean, "mae_mean",-0.01,1.5,path_to_save, subfolder= "calib")
+            plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_sd_rel, "mae_sd_rel",-0.01,0.2,path_to_save, subfolder= "calib")
+            plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_correlogram, "mae_correlogram",-0.01,dict_correlogram["mae_QQ"][0]*2,path_to_save, subfolder="calib")
+            plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,dict_correlogram_wt_remove["mae_QQ"][0]*2,path_to_save, subfolder= "calib")
 
             #########################################
             ##### Evaluation of validation data #####
             #### To do
             if CV_version is not "PC0":
                 print("eval proj")
-                proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X, discB, ProjA, ProjB, ProjQQ, OriginalProjA, OriginalProjB, OriginalProjQQ, minX, maxX, minB, maxB, proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "proj")
+                proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X, discB, ProjA, ProjB, ProjQQ, OriginalProjA, OriginalProjB, OriginalProjQQ, minX, maxX, minB, maxB, proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "proj", nb_pas_escore = nb_pas_escore)
 
-                plot_dict_rmse(QQ2B_version, is_DS, proj_dict_norm_rmse, proj_dict_varphy_rmse,path_to_save, subfolder="proj")
-                if computation_localWD==True:
-                    plot_dict_localwdenergy(proj_dict_realrank_localwd,proj_dict_realrank_localenergy,path_to_save, subfolder= "proj")
+                plot_dict_rmse(QQ2B_version, nb_epoch_for_eval,  is_DS, proj_dict_norm_rmse, proj_dict_varphy_rmse,path_to_save, subfolder="proj")
+                #if computation_localWD==True:
+                #    plot_dict_localwdenergy(proj_dict_realrank_localwd,proj_dict_realrank_localenergy,path_to_save, subfolder= "proj")
                 if computation_localenergy==True:
-                    plot_dict_localenergy(QQ2B_version, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy,path_to_save, subfolder = "proj")
+                    plot_dict_localenergy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy,path_to_save, subfolder = "proj")
                 #plot history of criteria
-                plot_history_criteria(QQ2B_version, proj_dict_mean, "mae_mean",-0.01,1.5,path_to_save, subfolder= "proj")
-                plot_history_criteria(QQ2B_version, proj_dict_sd_rel, "mae_sd_rel",-0.01,0.2,path_to_save, subfolder= "proj")
-                plot_history_criteria(QQ2B_version, proj_dict_correlogram, "mae_correlogram",-0.01,proj_dict_correlogram["mae_QQ"][0]*2,path_to_save, subfolder="proj")
-                plot_history_criteria(QQ2B_version, proj_dict_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,proj_dict_correlogram_wt_remove["mae_QQ"][0]*2,path_to_save, subfolder= "proj")
-
+                plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_mean, "mae_mean",-0.01,1.5,path_to_save, subfolder= "proj")
+                plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_sd_rel, "mae_sd_rel",-0.01,0.2,path_to_save, subfolder= "proj")
+                plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_correlogram, "mae_correlogram",-0.01,proj_dict_correlogram["mae_QQ"][0]*2,path_to_save, subfolder="proj")
+                plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,proj_dict_correlogram_wt_remove["mae_QQ"][0]*2,path_to_save, subfolder= "proj")
 
         #####EARLY STOPPING
         #if i>50 and (np.mean(g_hist[-2000:])>3.5 or np.std(g_hist[-2000:]) >0.26):
@@ -1420,16 +1513,16 @@ def plot_dict_wd( dict_varphy, dict_realrank, path_plot, subfolder):
     pyplot.figure(figsize=(11,11))
     pyplot.subplot(2,1,1)
     pyplot.plot(dict_varphy["wd_A2B"], label='wd_varphy_A2B', color= "blue")
-    pyplot.hlines(dict_varphy["wd_A"],xmin=0, xmax=len(dict_varphy["wd_A2B"]),label='wd_varphy_A', color= "red")
-    pyplot.hlines(dict_varphy["wd_QQ"],xmin=0, xmax=len(dict_varphy["wd_A2B"]), label='wd_varphy_QQ',color='orange')
+    pyplot.hlines(dict_varphy["wd_A"],xmin=0, xmax=len(dict_varphy["wd_A2B"])-1,label='wd_varphy_A', color= "red")
+    pyplot.hlines(dict_varphy["wd_QQ"],xmin=0, xmax=len(dict_varphy["wd_A2B"])-1, label='wd_varphy_QQ',color='orange')
     val, idx = min((val, idx) for (idx, val) in enumerate(dict_varphy["wd_A2B"]))
     pyplot.title("Best A2B at epoch " +  str(idx*10+1) + " with " + str(round(val,3)) + ", bin_size: " + str(round(dict_varphy["bin_size"][1],3)) +", A:" + str(round(dict_varphy["wd_A"][0],3)) + ", QQ: " + str(round(dict_varphy["wd_QQ"][0],3)), fontsize=7)
     pyplot.legend()
     pyplot.ylim((0,50))
     pyplot.subplot(2, 1, 2)
     pyplot.plot(dict_realrank["wd_A2B"], label='wd_realrank_A2B', color="blue")
-    pyplot.hlines(dict_realrank["wd_A"],xmin=0, xmax=len(dict_realrank["wd_A2B"]), label='wd_realrank_A', color="red")
-    pyplot.hlines(dict_realrank["wd_QQ"],xmin=0, xmax=len(dict_realrank["wd_A2B"]), label='wd_realrank_QQ',color='orange')
+    pyplot.hlines(dict_realrank["wd_A"],xmin=0, xmax=len(dict_realrank["wd_A2B"])-1, label='wd_realrank_A', color="red")
+    pyplot.hlines(dict_realrank["wd_QQ"],xmin=0, xmax=len(dict_realrank["wd_A2B"])-1, label='wd_realrank_QQ',color='orange')
     val, idx = min((val, idx) for (idx, val) in enumerate(dict_realrank["wd_A2B"]))
     pyplot.title("Best A2B at epoch " +  str(idx*10+1) + " with " + str(round(val,3)) + ", bin_size: " + str(round(dict_realrank["bin_size"][1],3)) + ", A: "+str(round(dict_realrank["wd_A"][0],3)) +  ", QQ: " + str(round(dict_realrank["wd_QQ"][0],3)), fontsize=7)
     pyplot.legend()
@@ -1444,8 +1537,8 @@ def plot_dict_localwdenergy(dict_realrank_localwd, dict_realrank_localenergy, pa
     pyplot.figure(figsize=(11,11))
     pyplot.subplot(2,1,1)
     pyplot.plot(dict_realrank_localwd["wd_A2B"], label='localwd_realrank_A2B', color= "blue")
-    pyplot.hlines(dict_realrank_localwd["wd_A"],xmin=0, xmax=len(dict_realrank_localwd["wd_A2B"]),label='localwd_realrank_A', color= "red")
-    pyplot.hlines(dict_realrank_localwd["wd_QQ"],xmin=0, xmax=len(dict_realrank_localwd["wd_A2B"]), label='localwd_realrank_QQ',color='orange')
+    pyplot.hlines(dict_realrank_localwd["wd_A"],xmin=0, xmax=len(dict_realrank_localwd["wd_A2B"])-1,label='localwd_realrank_A', color= "red")
+    pyplot.hlines(dict_realrank_localwd["wd_QQ"],xmin=0, xmax=len(dict_realrank_localwd["wd_A2B"])-1, label='localwd_realrank_QQ',color='orange')
     val, idx = min((val, idx) for (idx, val) in enumerate(dict_realrank_localwd["wd_A2B"]))
     pyplot.title("Best A2B at epoch " +  str(idx*10+1) + " with " + str(round(val,3)) + ", bin_size: " + str(round(dict_realrank_localwd["bin_size"][1],3)) +", A:" + str(round(dict_realrank_localwd["wd_A"][0],3)) + ", QQ: " + str(round(dict_realrank_localwd["wd_QQ"][0],3)), fontsize=7)
     pyplot.legend()
@@ -1453,8 +1546,8 @@ def plot_dict_localwdenergy(dict_realrank_localwd, dict_realrank_localenergy, pa
 
     pyplot.subplot(2,1,2)
     pyplot.plot(dict_realrank_localenergy["energy_A2B"], label='localenergy_realrank_A2B', color= "blue")
-    pyplot.hlines(dict_realrank_localenergy["energy_A"],xmin=0, xmax=len(dict_realrank_localenergy["energy_A2B"]),label='localenergy_realrank_A', color= "red")
-    pyplot.hlines(dict_realrank_localenergy["energy_QQ"],xmin=0, xmax=len(dict_realrank_localenergy["energy_A2B"]), label='localenergy_realrank_QQ',color='orange')
+    pyplot.hlines(dict_realrank_localenergy["energy_A"],xmin=0, xmax=len(dict_realrank_localenergy["energy_A2B"])-1,label='localenergy_realrank_A', color= "red")
+    pyplot.hlines(dict_realrank_localenergy["energy_QQ"],xmin=0, xmax=len(dict_realrank_localenergy["energy_A2B"])-1, label='localenergy_realrank_QQ',color='orange')
     val, idx = min((val, idx) for (idx, val) in enumerate(dict_realrank_localenergy["energy_A2B"]))
     pyplot.title("Best A2B at epoch " +  str(idx*10+1) + " with " + str(round(val,3)) + ", A:" + str(round(dict_realrank_localenergy["energy_A"][0],3)) + ", QQ: " + str(round(dict_realrank_localenergy["energy_QQ"][0],3)), fontsize=7)
     pyplot.legend()
