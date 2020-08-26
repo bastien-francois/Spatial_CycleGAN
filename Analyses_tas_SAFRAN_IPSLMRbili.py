@@ -27,8 +27,10 @@ from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import Dropout
 import sys
 from math import *
+import dcor
+from scipy.stats import *
 
-#### Possible choices for this code:
+### Possible choices for this code:
 GAN_version="SpatialCycleGAN"
 
 #Physical variable?
@@ -79,6 +81,8 @@ lambda_id=1
 
 nb_filters_disc=[64,128]
 nb_filters_gen=[64,128,256]
+
+ite_to_take= 4001
 
 ##################################################################
 ##### Automatized below according to the choices
@@ -155,7 +159,6 @@ savepath="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/"+ Ref + "_" + Mod + "/Sp
 os.chdir(savepath)
 
 
-ite_to_take= 4001
 genX2B = load_model( savepath + '/models/genX2B_model_' + str(ite_to_take) + '.h5')
 
 if QQ2B_version==True:
@@ -185,177 +188,262 @@ def denormalize_minmax(data, minX, maxX):
 
 if rank_version==False:
     #Rescale climatic variables wrt Xmin and Xmax
-    sample_varphy_CalibX2B=denormalize_minmax(sample_CalibX2B, minCalibX, maxCalibX)
-    sample_varphy_ProjX2B=denormalize_minmax(sample_ProjX2B, minCalibX, maxCalibX)
+    sample_varphy_CalibX2B=denormalize_minmax(sample_CalibX2B, minCalibB, maxCalibB)
+    sample_varphy_ProjX2B=denormalize_minmax(sample_ProjX2B, minCalibB, maxCalibB)
 
 #####################################################################################################################
 #### VARPHY_REORDERED ######## alla Cannon
 #####################################################################################################################
 sample_varphy_Calib_mQQsX2B= np.copy(sample_varphy_CalibX2B)
 sample_varphy_Proj_mQQsX2B= np.copy(sample_varphy_ProjX2B)
-from scipy.stats import *
+
+sample_varphy_Calib_mQQsX2B= CycleGAN.alla_Cannon(OriginalCalibQQ, sample_varphy_CalibX2B)
+sample_varphy_Proj_mQQsX2B= CycleGAN.alla_Cannon(OriginalProjQQ, sample_varphy_ProjX2B)
+
+### mBsX2B
+sample_varphy_Calib_mBsX2B = np.copy(sample_varphy_CalibX2B)
+sample_varphy_Proj_mBsX2B = np.copy(sample_varphy_ProjX2B)
+
+sample_varphy_Calib_mBsX2B= CycleGAN.alla_Cannon(OriginalCalibB, sample_varphy_CalibX2B)
+sample_varphy_Proj_mBsX2B= CycleGAN.alla_Cannon(OriginalProjB, sample_varphy_ProjX2B)
 
 
-def alla_Cannon(data_marg, data_struct): ### reorder data_marg with struct. of data_struct
-    res = np.copy(data_struct)
-    for k in range(28):
-        for l in range(28):
-            sorted_data_marg=np.sort(data_marg[:,k,l,0])
-            idx=rankdata(data_struct[:,k,l,0],method="min")
-            idx=idx.astype(int)-1
-            res[:,k,l,0] = sorted_data_marg[idx]
-    return res
+print("ok alla Cannon")
 
-sample_varphy_Calib_mQQsX2B= alla_Cannon(OriginalCalibQQ, sample_varphy_CalibX2B)
-sample_varphy_Proj_mQQsX2B= alla_Cannon(OriginalProjQQ, sample_varphy_ProjX2B)
+###!!!! Preprocess for PR !!!
+OriginalCalibA_preproc=np.copy(OriginalCalibA)
+OriginalCalibB_preproc = np.copy(OriginalCalibB)
+OriginalCalibQQ_preproc = np.copy(OriginalCalibQQ)
+
+OriginalProjA_preproc=np.copy(OriginalProjA)
+OriginalProjB_preproc = np.copy(OriginalProjB)
+OriginalProjQQ_preproc = np.copy(OriginalProjQQ)
+
+if PR_version==True:
+    th = np.min(np.concatenate((OriginalCalibB[OriginalCalibB>0], OriginalProjB[OriginalProjB>0])))
+    print("Seuil: " + str(th))
+    OriginalCalibA_preproc[OriginalCalibA_preproc < th]=0
+    OriginalCalibB_preproc[OriginalCalibB_preproc < th]=0
+    OriginalCalibQQ_preproc[OriginalCalibQQ_preproc < th]=0
+    sample_varphy_CalibX2B[sample_varphy_CalibX2B < th] = 0
+    sample_varphy_Calib_mQQsX2B[sample_varphy_Calib_mQQsX2B < th] = 0
+    sample_varphy_Calib_mBsX2B[sample_varphy_Calib_mBsX2B < th] = 0
+
+    OriginalProjA_preproc[OriginalProjA_preproc < th]=0
+    OriginalProjB_preproc[OriginalProjB_preproc < th]=0
+    OriginalProjQQ_preproc[OriginalProjQQ_preproc < th]=0
+    sample_varphy_ProjX2B[sample_varphy_ProjX2B < th] = 0
+    sample_varphy_Proj_mQQsX2B[sample_varphy_Proj_mQQsX2B < th] = 0
+    sample_varphy_Proj_mBsX2B[sample_varphy_Proj_mBsX2B < th] = 0
 
 
 
-###################################################################################################
-##### Accuracy of discB ####
-###################################################################################################
-#
-#discB = load_model( savepath + '/models/discB_model_' + str(ite_to_take) + '.h5')
-#
-#def eval_on_disc(data, disc, title_):
-#    res = disc.predict(data)
-#    print('Score ' +title_)
-#    print(res.mean())
-#    print(res.std())
-#    print(res.min())
-#    print(res.max())
-#
-#def eval_accuracy_on_disc(data, disc, title_):
-#    n_samples = data.shape[0]
-#    y = ones((n_samples, 1))
-#    _, res = disc.evaluate(data, y, verbose=0)
-#    print('Accu' + title_)
-#    print(res)
-#
-#def normalize_minmax(data, minX, maxX):
-#    res= np.copy(data)
-#    n=-1
-#    for k in range(28):
-#        for l in range(28):
-#            n=n+1
-#            res[:,k,l,:] = (data[:,k,l,:]- minX[n])/(maxX[n] - minX[n])
-#    return res
-#
-#
-#sample_reordered_CalibX2B = normalize_minmax(sample_varphy_reordered_CalibX2B, minCalibX, maxCalibX)
-#
-#
-##eval_on_disc(CalibA, discB, "CalibA")
-##eval_on_disc(CalibB, discB, "CalibB")
-##eval_on_disc(CalibQQ, discB, "CalibQQ")
-##eval_on_disc(sample_CalibX2B, discB, "CalibX2B")
-##eval_on_disc(sample_reordered_CalibX2B, discB, "reordered_CalibX2B")
-##
-#eval_accuracy_on_disc(CalibA, discB, "CalibA")
-#eval_accuracy_on_disc(CalibB, discB, "CalibB")
-#eval_accuracy_on_disc(CalibQQ, discB, "CalibQQ")
-#eval_accuracy_on_disc(sample_CalibX2B, discB, "CalibX2B")
-#eval_accuracy_on_disc(sample_reordered_CalibX2B, discB, "reordered_CalibX2B")
-#
-#
-#sample_CalibX2B[:, 10:15, 10:15,:] = CalibQQ[: , 10:15, 10:15, :]
-#eval_accuracy_on_disc(sample_CalibX2B, discB, "CalibX2B_modified")
-#
+#################################################################################
+#### Compute realrank ####
+################################################################################
+sample_realrank_CalibA = CycleGAN.compute_matrix_real_rank(OriginalCalibA_preproc)
+sample_realrank_CalibB = CycleGAN.compute_matrix_real_rank(OriginalCalibB_preproc)
+sample_realrank_CalibQQ = CycleGAN.compute_matrix_real_rank(OriginalCalibQQ_preproc)
+sample_realrank_CalibX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_CalibX2B)
+sample_realrank_Calib_mQQsX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_Calib_mQQsX2B)
+sample_realrank_Calib_mBsX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_Calib_mBsX2B)
+
+
+sample_realrank_ProjA = CycleGAN.compute_matrix_real_rank(OriginalProjA_preproc)
+sample_realrank_ProjB = CycleGAN.compute_matrix_real_rank(OriginalProjB_preproc)
+sample_realrank_ProjQQ = CycleGAN.compute_matrix_real_rank(OriginalProjQQ_preproc)
+sample_realrank_ProjX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_ProjX2B)
+sample_realrank_Proj_mQQsX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_Proj_mQQsX2B)
+sample_realrank_Proj_mBsX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_Proj_mBsX2B)
+
+
+
 
 path_plot = "/gpfswork/rech/eal/urq13cl/CycleGAN/Results"
 os.chdir(path_plot)
 
+#################################################################################################
+##### Compute local-energy ####
+#################################################################################################
+#path_plot = "/gpfswork/rech/eal/urq13cl/CycleGAN/Results"
+
+bool_compute_local_energy=False
+
+if bool_compute_local_energy==True:
+    ####### sur varphy ####
+    ###
+    ###### Calib
+    print("local energy Calib")
+    maps_localenergy_CalibA=CycleGAN.compute_localenergy_array_new(OriginalCalibA_preproc, OriginalCalibB_preproc)
+    maps_localenergy_CalibQQ=CycleGAN.compute_localenergy_array_new(OriginalCalibQQ_preproc, OriginalCalibB_preproc)
+    maps_localenergy_varphy_CalibX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_CalibX2B, OriginalCalibB_preproc)
+    maps_localenergy_varphy_Calib_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_Calib_mQQsX2B, OriginalCalibB_preproc)
+    maps_localenergy_varphy_Calib_mBsX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_Calib_mBsX2B, OriginalCalibB_preproc)
+    ###
+    ###CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_CalibA, maps_localenergy_CalibQQ, maps_localenergy_varphy_CalibX2B, maps_localenergy_varphy_Calib_mQQsX2B, "Global_Calib_localenergy_varphy",path_plot=path_plot, subfolder = "local_energy")
+    ####
+    print("CalibA: " + str(round(np.nanmean(abs(maps_localenergy_CalibA)),9)))
+    print("CalibQQ: " + str(round(np.nanmean(abs(maps_localenergy_CalibQQ)),9)))
+    print("CalibX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_CalibX2B)),9)))
+    print("Calib_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib_mQQsX2B)),9)))
+    print("Calib_mBsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib_mBsX2B)),9)))
+    ####
+    ######## sur realrank ####
+    print("local energy realrank Calib")
+    ####### Calib
+    ####
+    ####
+    maps_localenergy_CalibA=CycleGAN.compute_localenergy_array_new(sample_realrank_CalibA, sample_realrank_CalibB)
+    maps_localenergy_CalibQQ=CycleGAN.compute_localenergy_array_new(sample_realrank_CalibQQ, sample_realrank_CalibB)
+    maps_localenergy_varphy_CalibX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_CalibX2B, sample_realrank_CalibB)
+    maps_localenergy_varphy_Calib_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_Calib_mQQsX2B, sample_realrank_CalibB)
+    maps_localenergy_varphy_Calib_mBsX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_Calib_mBsX2B, sample_realrank_CalibB)
+    ####
+    ####CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_CalibA, maps_localenergy_CalibQQ, maps_localenergy_varphy_CalibX2B, maps_localenergy_varphy_reordered_CalibX2B, "Global_Calib_localenergy_realrank",path_plot=path_plot, subfolder = "local_energy")
+    ####
+    print("CalibA: " + str(round(np.nanmean(abs(maps_localenergy_CalibA)),9)))
+    print("CalibQQ: " + str(round(np.nanmean(abs(maps_localenergy_CalibQQ)),9)))
+    print("CalibX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_CalibX2B)),9)))
+    print("Calib_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib_mQQsX2B)),9)))
+    print("Calib_mBsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib_mBsX2B)),9)))
+    ###
+    ###
+    ##
+    ###
+    ###
+    ####### Proj
+    print("local_energy_Proj")
+    maps_localenergy_ProjA=CycleGAN.compute_localenergy_array_new(OriginalProjA_preproc, OriginalProjB_preproc)
+    maps_localenergy_ProjQQ=CycleGAN.compute_localenergy_array_new(OriginalProjQQ_preproc, OriginalProjB_preproc)
+    maps_localenergy_varphy_ProjX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_ProjX2B, OriginalProjB_preproc)
+    maps_localenergy_varphy_Proj_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_Proj_mQQsX2B, OriginalProjB_preproc)
+    maps_localenergy_varphy_Proj_mBsX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_Proj_mBsX2B, OriginalProjB_preproc)
+    ####
+    ####CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_ProjA, maps_localenergy_ProjQQ, maps_localenergy_varphy_ProjX2B, maps_localenergy_varphy_Proj_mQQsX2B, "Global_Proj_localenergy_varphy",path_plot=path_plot, subfolder = "local_energy")
+    ####
+    print("ProjA: " + str(round(np.nanmean(abs(maps_localenergy_ProjA)),9)))
+    print("ProjQQ: " + str(round(np.nanmean(abs(maps_localenergy_ProjQQ)),9)))
+    print("ProjX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_ProjX2B)),9)))
+    print("Proj_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Proj_mQQsX2B)),9)))
+    print("Proj_mBsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Proj_mBsX2B)),9)))
+    ###
+    print("local energy real rank Proj")
+    ###
+    ###
+    maps_localenergy_ProjA=CycleGAN.compute_localenergy_array_new(sample_realrank_ProjA, sample_realrank_ProjB)
+    maps_localenergy_ProjQQ=CycleGAN.compute_localenergy_array_new(sample_realrank_ProjQQ, sample_realrank_ProjB)
+    maps_localenergy_varphy_ProjX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_ProjX2B, sample_realrank_ProjB)
+    maps_localenergy_varphy_Proj_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_Proj_mQQsX2B, sample_realrank_ProjB)
+    maps_localenergy_varphy_Proj_mBsX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_Proj_mBsX2B, sample_realrank_ProjB)
+    ####
+    ####CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_ProjA, maps_localenergy_ProjQQ, maps_localenergy_varphy_ProjX2B, maps_localenergy_varphy_reordered_ProjX2B, "Global_Proj_localenergy_realrank",path_plot=path_plot, subfolder = "local_energy")
+    ####
+    ####
+    ###
+    ###
+    print("ProjA: " + str(round(np.nanmean(abs(maps_localenergy_ProjA)),9)))
+    print("ProjQQ: " + str(round(np.nanmean(abs(maps_localenergy_ProjQQ)),9)))
+    print("ProjX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_ProjX2B)),9)))
+    print("Proj_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Proj_mQQsX2B)),9)))
+    print("Proj_mBsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Proj_mBsX2B)),9)))
+    ##
+    ##
+    #
+    #
+
+##### Compute Global energy ####
+
+def compute_globalenergy_array_new(data_A,data_B):
+    def flat_array(data_array): #data_array of dim TIME x LAT x LON, output: nb_var*nb_time 
+        nb_lon=data_array.shape[2]
+        nb_lat=data_array.shape[1]
+        nb_var=nb_lon*nb_lat
+        nb_time=data_array.shape[0]
+        res=np.zeros((nb_var,nb_time))
+        k=-1
+        for i in range(nb_lat):
+            for j in range(nb_lon):
+                k=k+1
+                res[k,:]=data_array[:,i,j]
+        return res
+
+    nb_images=data_A.shape[0]
+    smallA=np.zeros((784,nb_images))
+    smallB= np.zeros((784,nb_images))
+    smallA=flat_array(data_A[:,:,:,0])
+    smallB=flat_array(data_B[:,:,:,0])
+#    print(smallA.shape)
+    res_localenergy = sqrt(dcor.homogeneity.energy_test_statistic(np.transpose(smallA), np.transpose(smallB), exponent=1)*(2*nb_images)/(nb_images * nb_images))
+    #res_localenergy = res_localenergy.astype(float)
+    return res_localenergy
 
 
-################################################################################################
-#### Compute local-energy ####
-################################################################################################
-import dcor
+print("compute global energy for varphy")
+print("Calib")
+globalenergy_CalibA=compute_globalenergy_array_new(OriginalCalibA_preproc, OriginalCalibB_preproc)
+print("A: " + str(globalenergy_CalibA))
+globalenergy_CalibQQ=compute_globalenergy_array_new(OriginalCalibQQ_preproc, OriginalCalibB_preproc)
+print("QQ: " + str(globalenergy_CalibQQ))
+globalenergy_CalibX2B=compute_globalenergy_array_new(sample_varphy_CalibX2B, OriginalCalibB_preproc)
+print("X2B: " + str(globalenergy_CalibX2B))
+globalenergy_Calib_mQQsX2B=compute_globalenergy_array_new(sample_varphy_Calib_mQQsX2B, OriginalCalibB_preproc)
+print("mQQsX2B: " + str(globalenergy_Calib_mQQsX2B))
+globalenergy_Calib_mBsX2B=compute_globalenergy_array_new(sample_varphy_Calib_mBsX2B, OriginalCalibB_preproc)
+print("mBsX2B: " + str(globalenergy_Calib_mBsX2B))
 
-path_plot = "/gpfswork/rech/eal/urq13cl/CycleGAN/Results"
+
+print("compute global energy for rank")
+print(sample_realrank_CalibA.shape)
+globalenergy_CalibA=compute_globalenergy_array_new(sample_realrank_CalibA, sample_realrank_CalibB)
+print("A: " + str(globalenergy_CalibA))
+globalenergy_CalibQQ=compute_globalenergy_array_new(sample_realrank_CalibQQ, sample_realrank_CalibB)
+print("QQ: " + str(globalenergy_CalibQQ))
+globalenergy_CalibX2B=compute_globalenergy_array_new(sample_realrank_CalibX2B, sample_realrank_CalibB)
+print("X2B: " + str(globalenergy_CalibX2B))
+globalenergy_Calib_mQQsX2B=compute_globalenergy_array_new(sample_realrank_Calib_mQQsX2B, sample_realrank_CalibB)
+print("mQQsX2B: " + str(globalenergy_Calib_mQQsX2B))
+globalenergy_Calib_mBsX2B=compute_globalenergy_array_new(sample_realrank_Calib_mBsX2B, sample_realrank_CalibB)
+print("mBsX2B: " + str(globalenergy_Calib_mBsX2B))
+
+
 #
-###### sur varphy ####
-##
-##### Calib
-#print("local energy Calib")
-#maps_localenergy_CalibA=CycleGAN.compute_localenergy_array_new(OriginalCalibA, OriginalCalibB)
-#maps_localenergy_CalibQQ=CycleGAN.compute_localenergy_array_new(OriginalCalibQQ, OriginalCalibB)
-#maps_localenergy_varphy_CalibX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_CalibX2B, OriginalCalibB)
-#maps_localenergy_varphy_Calib_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_Calib_mQQsX2B, OriginalCalibB)
-##
-##CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_CalibA, maps_localenergy_CalibQQ, maps_localenergy_varphy_CalibX2B, maps_localenergy_varphy_Calib_mQQsX2B, "Global_Calib_localenergy_varphy",path_plot=path_plot, subfolder = "local_energy")
-###
-#print("CalibA: " + str(round(np.nanmean(abs(maps_localenergy_CalibA)),9)))
-#print("CalibQQ: " + str(round(np.nanmean(abs(maps_localenergy_CalibQQ)),9)))
-#print("CalibX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_CalibX2B)),9)))
-#print("Calib_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib_mQQsX2B)),9)))
-##
-####### sur realrank ####
-#print("local energy realrank Calib")
-###### Calib
-#sample_realrank_CalibA = CycleGAN.compute_matrix_real_rank(OriginalCalibA)
-#sample_realrank_CalibB = CycleGAN.compute_matrix_real_rank(OriginalCalibB)
-#sample_realrank_CalibQQ = CycleGAN.compute_matrix_real_rank(OriginalCalibQQ)
-#sample_realrank_CalibX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_CalibX2B)
-#sample_realrank_Calib_mQQsX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_Calib_mQQsX2B)
-###
-###
-#maps_localenergy_CalibA=CycleGAN.compute_localenergy_array_new(sample_realrank_CalibA, sample_realrank_CalibB)
-#maps_localenergy_CalibQQ=CycleGAN.compute_localenergy_array_new(sample_realrank_CalibQQ, sample_realrank_CalibB)
-#maps_localenergy_varphy_CalibX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_CalibX2B, sample_realrank_CalibB)
-#maps_localenergy_varphy_Calib_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_Calib_mQQsX2B, sample_realrank_CalibB)
-###
-###CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_CalibA, maps_localenergy_CalibQQ, maps_localenergy_varphy_CalibX2B, maps_localenergy_varphy_reordered_CalibX2B, "Global_Calib_localenergy_realrank",path_plot=path_plot, subfolder = "local_energy")
-###
-#print("CalibA: " + str(round(np.nanmean(abs(maps_localenergy_CalibA)),9)))
-#print("CalibQQ: " + str(round(np.nanmean(abs(maps_localenergy_CalibQQ)),9)))
-#print("CalibX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_CalibX2B)),9)))
-#print("Calib_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib_mQQsX2B)),9)))
+print("compute global energy for varphy")
+print("Proj")
+globalenergy_ProjA=compute_globalenergy_array_new(OriginalProjA_preproc, OriginalProjB_preproc)
+print("A: " + str(globalenergy_ProjA))
+globalenergy_ProjQQ=compute_globalenergy_array_new(OriginalProjQQ_preproc, OriginalProjB_preproc)
+print("QQ: " + str(globalenergy_ProjQQ))
+globalenergy_ProjX2B=compute_globalenergy_array_new(sample_varphy_ProjX2B, OriginalProjB_preproc)
+print("X2B: " + str(globalenergy_ProjX2B))
+globalenergy_Proj_mQQsX2B=compute_globalenergy_array_new(sample_varphy_Proj_mQQsX2B, OriginalProjB_preproc)
+print("mQQsX2B: " + str(globalenergy_Proj_mQQsX2B))
+globalenergy_Proj_mBsX2B=compute_globalenergy_array_new(sample_varphy_Proj_mBsX2B, OriginalProjB_preproc)
+print("mBsX2B: " + str(globalenergy_Proj_mBsX2B))
 ##
 ##
+print("compute global energy for rank")
+globalenergy_ProjA=compute_globalenergy_array_new(sample_realrank_ProjA, sample_realrank_ProjB)
+print("A: " + str(globalenergy_ProjA))
+globalenergy_ProjQQ=compute_globalenergy_array_new(sample_realrank_ProjQQ, sample_realrank_ProjB)
+print("QQ: " + str(globalenergy_ProjQQ))
+globalenergy_ProjX2B=compute_globalenergy_array_new(sample_realrank_ProjX2B, sample_realrank_ProjB)
+print("X2B: " + str(globalenergy_ProjX2B))
+globalenergy_Proj_mQQsX2B=compute_globalenergy_array_new(sample_realrank_Proj_mQQsX2B, sample_realrank_ProjB)
+print("mQQsX2B: " + str(globalenergy_Proj_mQQsX2B))
+globalenergy_Proj_mBsX2B=compute_globalenergy_array_new(sample_realrank_Proj_mBsX2B, sample_realrank_ProjB)
+print("mBsX2B: " + str(globalenergy_Proj_mBsX2B))
+##
+##
+print("end compute global energy")
 #
-##
-##
-###### Proj
-#print("local_energy_Proj")
-#maps_localenergy_ProjA=CycleGAN.compute_localenergy_array_new(OriginalProjA, OriginalProjB)
-#maps_localenergy_ProjQQ=CycleGAN.compute_localenergy_array_new(OriginalProjQQ, OriginalProjB)
-#maps_localenergy_varphy_ProjX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_ProjX2B, OriginalProjB)
-#maps_localenergy_varphy_Proj_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_varphy_Proj_mQQsX2B, OriginalProjB)
-###
-###CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_ProjA, maps_localenergy_ProjQQ, maps_localenergy_varphy_ProjX2B, maps_localenergy_varphy_Proj_mQQsX2B, "Global_Proj_localenergy_varphy",path_plot=path_plot, subfolder = "local_energy")
-###
-#print("ProjA: " + str(round(np.nanmean(abs(maps_localenergy_ProjA)),9)))
-#print("ProjQQ: " + str(round(np.nanmean(abs(maps_localenergy_ProjQQ)),9)))
-#print("ProjX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_ProjX2B)),9)))
-#print("Proj_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Proj_mQQsX2B)),9)))
-##
-#print("local energy real rank Proj")
-#sample_realrank_ProjA = CycleGAN.compute_matrix_real_rank(OriginalProjA)
-#sample_realrank_ProjB = CycleGAN.compute_matrix_real_rank(OriginalProjB)
-#sample_realrank_ProjQQ = CycleGAN.compute_matrix_real_rank(OriginalProjQQ)
-#sample_realrank_ProjX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_ProjX2B)
-#sample_realrank_Proj_mQQsX2B = CycleGAN.compute_matrix_real_rank(sample_varphy_Proj_mQQsX2B)
-##
-##
-#maps_localenergy_ProjA=CycleGAN.compute_localenergy_array_new(sample_realrank_ProjA, sample_realrank_ProjB)
-#maps_localenergy_ProjQQ=CycleGAN.compute_localenergy_array_new(sample_realrank_ProjQQ, sample_realrank_ProjB)
-#maps_localenergy_varphy_ProjX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_ProjX2B, sample_realrank_ProjB)
-#maps_localenergy_varphy_Proj_mQQsX2B=CycleGAN.compute_localenergy_array_new(sample_realrank_Proj_mQQsX2B, sample_realrank_ProjB)
-###
-###CycleGAN.plot_maps_localWD(ite_to_take,QQ2B_version, False, maps_localenergy_ProjA, maps_localenergy_ProjQQ, maps_localenergy_varphy_ProjX2B, maps_localenergy_varphy_reordered_ProjX2B, "Global_Proj_localenergy_realrank",path_plot=path_plot, subfolder = "local_energy")
-###
-###
-##
-##
-#print("ProjA: " + str(round(np.nanmean(abs(maps_localenergy_ProjA)),9)))
-#print("ProjQQ: " + str(round(np.nanmean(abs(maps_localenergy_ProjQQ)),9)))
-#print("ProjX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_ProjX2B)),9)))
-#print("Proj_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Proj_mQQsX2B)),9)))
+#
+#
 #
 #
 
 
+
+print("intermediate energy")
 ##### Compute Intermediate local energy 5x5; 7x7; 9x9; 11x11...  
 def compute_intermediate_localenergy_array_new(data_A,data_B, width_window = 5):
     def flat_array(data_array): #data_array of dim TIME x LAT x LON, output: nb_var*nb_time 
@@ -433,92 +521,58 @@ print("Calib_mQQsX2B: " + str(round(np.nanmean(abs(maps_localenergy_varphy_Calib
 
 
 
-##### Compute Global energy ####
-
-def compute_globalenergy_array_new(data_A,data_B):
-    def flat_array(data_array): #data_array of dim TIME x LAT x LON, output: nb_var*nb_time 
-        nb_lon=data_array.shape[2]
-        nb_lat=data_array.shape[1]
-        nb_var=nb_lon*nb_lat
-        nb_time=data_array.shape[0]
-        res=np.zeros((nb_var,nb_time))
-        k=-1
-        for i in range(nb_lat):
-            for j in range(nb_lon):
-                k=k+1
-                res[k,:]=data_array[:,i,j]
-        return res
-
-    nb_images=data_A.shape[0]
-    smallA=np.zeros((784,nb_images))
-    smallB= np.zeros((784,nb_images))
-    smallA=flat_array(data_A[:,:,:,0])
-    smallB=flat_array(data_B[:,:,:,0])
-    print(smallA.shape)
-    res_localenergy = dcor.homogeneity.energy_test_statistic(np.transpose(smallA), np.transpose(smallB), exponent=1)
-    res_localenergy = res_localenergy.astype(float)
-    return res_localenergy
 
 
-print("compute global energy for varphy")
-print("Calib")
-print(sample_realrank_CalibA.shape)
-globalenergy_CalibA=compute_globalenergy_array_new(OriginalCalibA, OriginalCalibB)
-print("A: " + str(globalenergy_CalibA))
-globalenergy_CalibQQ=compute_globalenergy_array_new(OriginalCalibQQ, OriginalCalibB)
-print("QQ: " + str(globalenergy_CalibQQ))
-globalenergy_CalibX2B=compute_globalenergy_array_new(sample_varphy_CalibX2B, OriginalCalibB)
-print("X2B: " + str(globalenergy_CalibX2B))
-globalenergy_Calib_mQQsX2B=compute_globalenergy_array_new(sample_varphy_Calib_mQQsX2B, OriginalCalibB)
-print("mQQsX2B: " + str(globalenergy_Calib_mQQsX2B))
-
-print("compute global energy for rank")
-print(sample_realrank_CalibA.shape)
-globalenergy_CalibA=compute_globalenergy_array_new(sample_realrank_CalibA, sample_realrank_CalibB)
-print("A: " + str(globalenergy_CalibA))
-globalenergy_CalibQQ=compute_globalenergy_array_new(sample_realrank_CalibQQ, sample_realrank_CalibB)
-print("QQ: " + str(globalenergy_CalibQQ))
-globalenergy_CalibX2B=compute_globalenergy_array_new(sample_realrank_CalibX2B, sample_realrank_CalibB)
-print("X2B: " + str(globalenergy_CalibX2B))
-globalenergy_Calib_mQQsX2B=compute_globalenergy_array_new(sample_realrank_Calib_mQQsX2B, sample_realrank_CalibB)
-print("mQQsX2B: " + str(globalenergy_Calib_mQQsX2B))
+###################################################################################################
+##### Accuracy of discB ####
+###################################################################################################
+#
+#discB = load_model( savepath + '/models/discB_model_' + str(ite_to_take) + '.h5')
+#
+#def eval_on_disc(data, disc, title_):
+#    res = disc.predict(data)
+#    print('Score ' +title_)
+#    print(res.mean())
+#    print(res.std())
+#    print(res.min())
+#    print(res.max())
+#
+#def eval_accuracy_on_disc(data, disc, title_):
+#    n_samples = data.shape[0]
+#    y = ones((n_samples, 1))
+#    _, res = disc.evaluate(data, y, verbose=0)
+#    print('Accu' + title_)
+#    print(res)
+#
+#def normalize_minmax(data, minX, maxX):
+#    res= np.copy(data)
+#    n=-1
+#    for k in range(28):
+#        for l in range(28):
+#            n=n+1
+#            res[:,k,l,:] = (data[:,k,l,:]- minX[n])/(maxX[n] - minX[n])
+#    return res
 #
 #
-
-print("compute global energy for varphy")
-print("Proj")
-globalenergy_ProjA=compute_globalenergy_array_new(OriginalProjA, OriginalProjB)
-print("A: " + str(globalenergy_ProjA))
-globalenergy_ProjQQ=compute_globalenergy_array_new(OriginalProjQQ, OriginalProjB)
-print("QQ: " + str(globalenergy_ProjQQ))
-globalenergy_ProjX2B=compute_globalenergy_array_new(sample_varphy_ProjX2B, OriginalProjB)
-print("X2B: " + str(globalenergy_ProjX2B))
-globalenergy_Proj_mQQsX2B=compute_globalenergy_array_new(sample_varphy_Proj_mQQsX2B, OriginalProjB)
-print("mQQsX2B: " + str(globalenergy_Proj_mQQsX2B))
+#sample_reordered_CalibX2B = normalize_minmax(sample_varphy_reordered_CalibX2B, minCalibX, maxCalibX)
 #
 #
-print("compute global energy for rank")
-print(sample_realrank_ProjA.shape)
-globalenergy_ProjA=compute_globalenergy_array_new(sample_realrank_ProjA, sample_realrank_ProjB)
-print("A: " + str(globalenergy_ProjA))
-globalenergy_ProjQQ=compute_globalenergy_array_new(sample_realrank_ProjQQ, sample_realrank_ProjB)
-print("QQ: " + str(globalenergy_ProjQQ))
-globalenergy_ProjX2B=compute_globalenergy_array_new(sample_realrank_ProjX2B, sample_realrank_ProjB)
-print("X2B: " + str(globalenergy_ProjX2B))
-globalenergy_Proj_mQQsX2B=compute_globalenergy_array_new(sample_realrank_Proj_mQQsX2B, sample_realrank_ProjB)
-print("mQQsX2B: " + str(globalenergy_Proj_mQQsX2B))
+##eval_on_disc(CalibA, discB, "CalibA")
+##eval_on_disc(CalibB, discB, "CalibB")
+##eval_on_disc(CalibQQ, discB, "CalibQQ")
+##eval_on_disc(sample_CalibX2B, discB, "CalibX2B")
+##eval_on_disc(sample_reordered_CalibX2B, discB, "reordered_CalibX2B")
+##
+#eval_accuracy_on_disc(CalibA, discB, "CalibA")
+#eval_accuracy_on_disc(CalibB, discB, "CalibB")
+#eval_accuracy_on_disc(CalibQQ, discB, "CalibQQ")
+#eval_accuracy_on_disc(sample_CalibX2B, discB, "CalibX2B")
+#eval_accuracy_on_disc(sample_reordered_CalibX2B, discB, "reordered_CalibX2B")
 #
 #
-print("end compute global energy")
-
-
-
-
-
-
-
-
-
+#sample_CalibX2B[:, 10:15, 10:15,:] = CalibQQ[: , 10:15, 10:15, :]
+#eval_accuracy_on_disc(sample_CalibX2B, discB, "CalibX2B_modified")
+#
 
 
 
