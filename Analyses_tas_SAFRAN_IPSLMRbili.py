@@ -106,10 +106,10 @@ else:
     PR_version=True
 
 ### For QQ loading
-if var_phys=="pr" and Mod is not "SAFRANdetbili":
-    BC1d="1dCDFt"
-else:
-    BC1d="1dQQ"
+#if var_phys=="pr" and Mod is not "SAFRANdetbili":
+#    BC1d="1dCDFt"
+#else:
+BC1d="1dQQ"
 
 
 #### Load Model
