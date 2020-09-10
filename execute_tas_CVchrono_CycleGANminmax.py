@@ -63,15 +63,15 @@ L_norm="L1norm"
 
 
 Ref="SAFRAN"
-#Mod="IPSLMRbili"
-Mod = "SAFRANdetbili"
+Mod="IPSLMRbili"
+#Mod = "SAFRANdetbili"
 
 #### Wasserstein distances?
 computation_WD=False
 computation_localWD=False
 
-computation_energy=False
-computation_localenergy=True
+computation_localenergy=False
+computation_globalenergy=True
 
 #### Weights for valid, reconstruct and identity
 lambda_val=1
@@ -81,7 +81,7 @@ lambda_id=1
 nb_filters_disc=[64,128]
 nb_filters_gen=[64,128,256]
 
-nb_epoch_for_eval = 100
+nb_epoch_for_eval = 10
 ##################################################################
 ##### Automatized below according to the choices
 #
@@ -103,11 +103,7 @@ else:
     PR_version=True
 
 ### For QQ loading
-#if var_phys=="pr" and Mod is not "SAFRANdetbili":
-#    BC1d="1dCDFt"
-#else:
 BC1d="1dQQ"
-
 
 #### Load Model
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/" + Mod + "/")
@@ -117,11 +113,21 @@ CalibA, ProjA,LON_Paris,LAT_Paris,minCalibA, maxCalibA, IND_Paris,point_max, Ori
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/Data/" + Ref + "/")
 CalibB, ProjB, LON_Paris, LAT_Paris, minCalibB, maxCalibB,IND_Paris, point_max, OriginalCalibB, OriginalProjB = CycleGAN.load_calib_proj_minmaxrank(CV_version,rank_version,"tas_pr_day_" + Ref + "_79_16_Paris",var_phys + "_day_" + Ref + "_79_16_Paris",season)
 
-
-
 #### Load QQ
 os.chdir("/gpfswork/rech/eal/commun/CycleGAN/MBC/" + Ref + "_" + Mod + "/" +  CV_version)
 CalibQQ, ProjQQ,_,_,minCalibQQ, maxCalibQQ,_,_,OriginalCalibQQ, OriginalProjQQ = CycleGAN.load_calib_proj_minmaxrank(CV_version,rank_version, "tas_pr_day_" + CV_version + "_" + BC1d+"_"+Ref+"_"+Mod+"_79_16_Paris",var_phys + "_day_" + CV_version + "_" + BC1d + "_" + Ref + "_" + Mod + "_79_16_Paris",season)
+
+##### Load SpatialR2D2
+MBC_output = "SpatialR2D2"
+os.chdir("/gpfswork/rech/eal/commun/CycleGAN/MBC/" + Ref + "_" + Mod + "/" +  CV_version)
+CalibSpatialR2D2, ProjSpatialR2D2,_,_,minCalibSpatialR2D2, maxCalibSpatialR2D2,_,_,OriginalCalibSpatialR2D2, OriginalProjSpatialR2D2 = CycleGAN.load_calib_proj_minmaxrank(CV_version,rank_version, "tas_pr_day_" + CV_version + "_" + MBC_output+"_"+Ref+"_" + Mod + "_79_16_Paris",var_phys + "_day_" + CV_version + "_" + MBC_output + "_" + Ref + "_" + Mod + "_79_16_Paris",season)
+print("R2D2 loaded")
+
+##### Load SpatialdOTC
+MBC_output = "SpatialdOTC"
+os.chdir("/gpfswork/rech/eal/commun/CycleGAN/MBC/" + Ref + "_" + Mod + "/" +  CV_version)
+CalibSpatialdOTC, ProjSpatialdOTC,_,_,minCalibSpatialdOTC, maxCalibSpatialdOTC,_,_,OriginalCalibSpatialdOTC, OriginalProjSpatialdOTC = CycleGAN.load_calib_proj_minmaxrank(CV_version,rank_version, "tas_pr_day_" + CV_version + "_" + MBC_output+"_"+Ref+"_" + Mod + "_79_16_Paris",var_phys + "_day_" + CV_version + "_" + MBC_output + "_" + Ref + "_" + Mod + "_79_16_Paris",season)
+print("dOTC loaded")
 
 if QQ2B_version==True:
     minCalibX=minCalibQQ
@@ -164,7 +170,6 @@ for lr_disc in list_lr_disc:
         #### Create a new folder
         os.chdir("/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+ var_phys+"/" +  CV_version + "/" + name_QQ2B + "/" + season)
 
-
         new_folder = var_phys + '_' + name_version + '_' + CV_version + '_lrgen'+str(lr_gen)+'_lrdisc'+str(lr_disc) +"_Relu_lval" + str(lambda_val) + "_lrec" + str(lambda_rec) + "_lid" + str(lambda_id) + "_" + name_QQ2B +"_" + L_norm + name_new_arch + name_local_energy
         makedirs(new_folder, exist_ok=True)
         makedirs(new_folder + '/models', exist_ok=True)
@@ -172,7 +177,7 @@ for lr_disc in list_lr_disc:
         makedirs(new_folder + '/proj', exist_ok=True)
         path_to_save="/gpfswork/rech/eal/urq13cl/CycleGAN/Data/MBC/" + Ref + "_" + Mod + "/" + GAN_version + "/"+var_phys+"/"+  CV_version + "/" + name_QQ2B + "/" + season+"/"+new_folder
         #### Train CycleGAN
-        CycleGAN.train_combined_new(rank_version, PR_version,QQ2B_version, CV_version, is_DS, computation_localWD, computation_localenergy, genX2B, genB2X, discX, discB, comb_model, CalibA, CalibB, CalibQQ, ProjA, ProjB, ProjQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalProjA, OriginalProjB, OriginalProjQQ ,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, minX=minCalibX, maxX=maxCalibX, minB= minCalibB, maxB = maxCalibB, n_epochs=6000, nb_epoch_for_eval = nb_epoch_for_eval) #####attention n_epochs
+        CycleGAN.train_combined_new(rank_version, PR_version,QQ2B_version, CV_version, is_DS, computation_localWD, computation_localenergy, computation_globalenergy, genX2B, genB2X, discX, discB, comb_model, CalibA, CalibB, CalibQQ, ProjA, ProjB, ProjQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalCalibSpatialR2D2, OriginalCalibSpatialdOTC, OriginalProjA, OriginalProjB, OriginalProjQQ, OriginalProjSpatialR2D2, OriginalProjSpatialdOTC,IND_Paris, LON_Paris, LAT_Paris,point_max, path_to_save, minX=minCalibX, maxX=maxCalibX, minB= minCalibB, maxB = maxCalibB, n_epochs=6000, nb_epoch_for_eval = nb_epoch_for_eval) #####attention n_epochs
 
 
 
