@@ -330,19 +330,19 @@ def compute_correlo(remove_spat_mean,data,ind,lon,lat,point_grid, method="spearm
     if method =="pearson":
         Cspearman =np.corrcoef(Mat_daily_mean_removed.T)
     #### compute correlogram
-    Res_Mean_corr=[]
-    Res_Med_corr=[]
+    Res_Mean_corrspearman=[]
+    Res_Med_corrspearman=[]
     Correlo_dist=[]
     for n in range(0,Nc):
         d=n*size
         Correlo_dist.append(d)
         coordinates=(((Dist2>=(d-varsize)) & (Dist2<(d+varsize))))
-        Res_Mean_corr.append(Cspearman[coordinates].mean())
-        Res_Med_corr.append(np.median(Cspearman[coordinates]))
-    Res_Mean_corr=np.array(Res_Mean_corr)
-    Res_Med_corr=np.array(Res_Med_corr)
+        Res_Mean_corrspearman.append(Cspearman[coordinates].mean())
+        Res_Med_corrspearman.append(np.median(Cspearman[coordinates]))
+    Res_Mean_corrspearman=np.array(Res_Mean_corrspearman)
+    Res_Med_corrspearman=np.array(Res_Med_corrspearman)
     Correlo_dist=np.array(Correlo_dist)
-    return Res_Mean_corr, Res_Med_corr, Correlo_dist, Cspearman
+    return Res_Mean_corrspearman, Res_Med_corrspearman, Correlo_dist, Cspearman
 
 def plot_maps(epoch,QQ2B_version, PR_version, mat_A, mat_B, mat_QQ, mat_X2B, mat_mQQsX2B, title, path_plot, subfolder, lon=np.array(range(28)), lat=np.array(range(28))):
     if QQ2B_version==True:
@@ -498,13 +498,35 @@ def plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_crit,title_crit,
     pyplot.plot(dict_crit["mae_X2B"], label= X_name + "2B", color="blue")
     pyplot.plot(dict_crit["mae_mQQsX2B"], label= "mQQs" + X_name + "2B", color="green")
     pyplot.legend()
-    val, idx = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_X2B"]))
+#    val, idx = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_X2B"]))
     pyplot.ylim((ylim1,ylim2))
     val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_X2B"]))
     val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_crit["mae_mQQsX2B"]))
     pyplot.title("A: " + str(round(dict_crit["mae_A"][0],2)) + ", QQ: " + str(round(dict_crit["mae_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*nb_epoch_for_eval+1) +  ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "  +  str(idx_mQQsX2B*nb_epoch_for_eval+1) , fontsize=7)
-    pyplot.xticks(range(0,len(dict_crit["mae_X2B"]),3), range(0,len(dict_crit["mae_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.xticks(range(0,len(dict_crit["mae_X2B"]),max(1,int(len(dict_crit["mae_X2B"])/5))), range(0,len(dict_crit["mae_X2B"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_crit["mae_X2B"])/5)))))
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '.png')
+    pyplot.close()
+
+def plot_history_slope_mse(QQ2B_version, nb_epoch_for_eval, dict_crit,title_crit,ylim1,ylim2,path_plot, subfolder):
+    if QQ2B_version==True:
+        X_name="QQ"
+    else:
+        X_name="A"
+    #plot slope_mse
+    pyplot.subplot(1, 1, 1)
+    pyplot.hlines(dict_crit["slope_mse_A"][0],xmin=0, xmax=len(dict_crit["slope_mse_X2B"])-1, label='A', color='red')
+    pyplot.plot(dict_crit["slope_mse_X2B"], label= X_name + "2B", color="blue")
+    pyplot.plot(dict_crit["slope_mse_mQQsX2B"], label= "mQQs" + X_name + "2B", color="green")
+    pyplot.hlines(dict_crit["slope_mse_SpatialR2D2"][0],xmin=0, xmax=len(dict_crit["slope_mse_X2B"])-1, label='R2D2', color='purple')
+    pyplot.hlines(dict_crit["slope_mse_SpatialdOTC"][0],xmin=0, xmax=len(dict_crit["slope_mse_X2B"])-1, label='dOTC', color='cyan')
+    pyplot.legend()
+#    val, idx = min((val, idx) for (idx, val) in enumerate(dict_crit["slope_mse_X2B"]))
+    pyplot.ylim((ylim1,ylim2))
+    val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_crit["slope_mse_X2B"]))
+    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_crit["slope_mse_mQQsX2B"]))
+    pyplot.title("A: " + str(round(dict_crit["slope_mse_A"][0],4)) + ", R2D2: " + str(round(dict_crit["slope_mse_SpatialR2D2"][0],4)) + ", dOTC: " + str(round(dict_crit["slope_mse_SpatialdOTC"][0],4)) + ", best " + X_name + "2B: " +  str(round(val_X2B,4)) + " at epo. "  +  str(idx_X2B*nb_epoch_for_eval+1) +  ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,4)) + " at epo. "  +  str(idx_mQQsX2B*nb_epoch_for_eval+1) , fontsize=7)
+    pyplot.xticks(range(0,len(dict_crit["slope_mse_X2B"]),max(1,int(len(dict_crit["slope_mse_X2B"])/5))), range(0,len(dict_crit["slope_mse_X2B"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_crit["slope_mse_X2B"])/5)))))
+    pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_'+ title_crit + '.png')
     pyplot.close()
 
 
@@ -522,8 +544,8 @@ def compute_matrix_real_rank(data, ties_method="min"):
     return res
 
 def compute_some_rmse(QQ2B_version, is_DS,dict_rmse,sample_A, sample_B, sample_QQ, sample_X2B, sample_B2X, sample_X2B2X, sample_B2X2B,sample_B2X_X, sample_X2B_B):
-    def rmse(ref, pred):
-        return np.sum((ref.astype("float") - pred.astype("float")) **2)/(ref.shape[1]*ref.shape[2]*ref.shape[0])
+    #def rmse(ref, pred):
+    #    return np.sum((ref.astype("float") - pred.astype("float")) **2)/(ref.shape[1]*ref.shape[2]*ref.shape[0])
     if QQ2B_version==True:
         sample_X = np.copy(sample_QQ)
     else:
@@ -570,7 +592,7 @@ def plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm, dict_varphy
     pyplot.legend()
     pyplot.yscale('log')
     pyplot.ylim((1e-7,1))
-    pyplot.xticks(range(0,len(dict_norm["rmse_X2B"]),3), range(0,len(dict_norm["rmse_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.xticks(range(0,len(dict_norm["rmse_X2B"]),max(1,int(len(dict_norm["rmse_X2B"])/5))), range(0,len(dict_norm["rmse_X2B"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_norm["rmse_X2B"])/5)))))
 
     pyplot.subplot(2,1,2)
     pyplot.plot(dict_norm["rmse_X2B2X"], label= X_name + '2B2' + X_name, color="red")
@@ -582,7 +604,7 @@ def plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm, dict_varphy
     pyplot.legend()
     pyplot.yscale('log')
     pyplot.ylim((1e-7,1))
-    pyplot.xticks(range(0,len(dict_norm["rmse_B2X"]),3), range(0,len(dict_norm["rmse_B2X"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.xticks(range(0,len(dict_norm["rmse_B2X"]),max(1,int(len(dict_norm["rmse_B2X"])/5))), range(0,len(dict_norm["rmse_B2X"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_norm["rmse_B2X"])/5)))))
     #save plot to file
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_rmse_norm.png')
     pyplot.close()
@@ -601,7 +623,7 @@ def plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm, dict_varphy
 
     pyplot.legend()
     pyplot.ylim((0,1))
-    pyplot.xticks(range(0,len(dict_varphy["rmse_X2B"]),3), range(0,len(dict_varphy["rmse_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.xticks(range(0,len(dict_varphy["rmse_X2B"]),max(1,int(len(dict_varphy["rmse_X2B"])/5))), range(0,len(dict_varphy["rmse_X2B"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_varphy["rmse_X2B"])/5)))))
 
     pyplot.subplot(2,1,2)
     pyplot.plot(dict_varphy["rmse_X2B2X"], label= X_name + '2B2' + X_name, color="red")
@@ -612,7 +634,7 @@ def plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm, dict_varphy
         pyplot.title("Best B2" + X_name + " at epoch " +  str(idx*nb_epoch_for_eval+1), fontsize=7)
     pyplot.legend()
     pyplot.ylim((0,1))
-    pyplot.xticks(range(0,len(dict_varphy["rmse_B2X"]),3), range(0,len(dict_varphy["rmse_B2X"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.xticks(range(0,len(dict_varphy["rmse_B2X"]),max(1,int(len(dict_varphy["rmse_B2X"])/5))), range(0,len(dict_varphy["rmse_B2X"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_varphy["rmse_B2X"])/5)))))
 
     #save plot to file
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_rmse_varphy.png')
@@ -653,6 +675,30 @@ def compute_localenergy_array_new(data_A,data_B):
                     res_localenergy[:,k,l] = sqrt(dcor.homogeneity.energy_test_statistic(np.transpose(smallA), np.transpose(smallB), exponent=1)*(2*nb_images)/(nb_images * nb_images)) #### formula, see Rizza and Szekely 2015
     res_localenergy = res_localenergy.astype(float)
     return res_localenergy
+
+def compute_globalenergy_array_new(data_A,data_B):
+    def flat_array(data_array): #data_array of dim TIME x LAT x LON, output: nb_var*nb_time  
+        nb_lon=data_array.shape[2]
+        nb_lat=data_array.shape[1]
+        nb_var=nb_lon*nb_lat
+        nb_time=data_array.shape[0]
+        res=np.zeros((nb_var,nb_time))
+        k=-1
+        for i in range(nb_lat):
+            for j in range(nb_lon):
+                k=k+1
+                res[k,:]=data_array[:,i,j]
+        return res
+
+    nb_images=data_A.shape[0]
+    smallA=np.zeros((784,nb_images))
+    smallB= np.zeros((784,nb_images))
+    smallA=flat_array(data_A[:,:,:,0])
+    smallB=flat_array(data_B[:,:,:,0])
+    res_localenergy = sqrt(dcor.homogeneity.energy_test_statistic(np.transpose(smallA), np.transpose(smallB), exponent=1)*(2*nb_images)/(nb_images * nb_images))
+    return res_localenergy
+
+
 
 
 def plot_maps_localWD(epoch, QQ2B_version, PR_version, mat_A, mat_QQ, mat_X2B, mat_mQQsX2B, title, path_plot, subfolder, nb_lon=27, nb_lat=27):
@@ -716,7 +762,7 @@ def plot_maps_localWD(epoch, QQ2B_version, PR_version, mat_A, mat_QQ, mat_X2B, m
     pyplot.close()
 
 
-def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, th_Obs, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X, discB, datasetA,datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, minX, maxX, minB, maxB, dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB, ind, lon, lat,  point_grid, path_plot, subfolder, nb_pas_escore, n_samples=8):
+def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, th_Obs, QQ2B_version,  computation_localWD, computation_localenergy, computation_globalenergy, genX2B, genB2X, discB, datasetA,datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, OriginalSpatialR2D2, OriginalSpatialdOTC, minX, maxX, minB, maxB, dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_slope_mse, dict_slope_mse_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_varphy_globalenergy, dict_realrank_globalenergy, dict_score_discB, ind, lon, lat,  point_grid, path_plot, subfolder, nb_pas_escore, n_samples=8):
 
     def plot_raw_varphy(name_data, QQ2B_version, ix, epoch, PR_version, sample_A, sample_B, sample_QQ, sample_X2B, sample_B2X, sample_X2B2X, sample_B2X2B, sample_B2X_X, sample_X2B_B,n=n_samples):
         vmin = np.quantile(vstack((sample_A,sample_B)), 0.025)
@@ -868,6 +914,10 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
     OriginalA_preproc=np.copy(OriginalA)
     OriginalB_preproc = np.copy(OriginalB)
     OriginalQQ_preproc = np.copy(OriginalQQ)
+    ### for R2D2 and dOTC
+    OriginalSpatialR2D2_preproc = np.copy(OriginalSpatialR2D2)
+    OriginalSpatialdOTC_preproc = np.copy(OriginalSpatialdOTC)
+
     if PR_version==True:
         sample_varphy_X2B[sample_varphy_X2B < th_Obs] = 0
         sample_varphy_B2X[sample_varphy_B2X < th_Obs] = 0
@@ -878,6 +928,10 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         OriginalA_preproc[OriginalA_preproc < th_Obs]=0
         OriginalB_preproc[OriginalB_preproc < th_Obs]=0
         OriginalQQ_preproc[OriginalQQ_preproc < th_Obs]=0
+        ### for R2D2 and dOTC
+        OriginalSpatialR2D2_preproc[OriginalSpatialR2D2_preproc < th_Obs]=0
+        OriginalSpatialdOTC_preproc[OriginalSpatialdOTC_preproc < th_Obs]=0
+
 
     #### Preprocess!!!
     if PR_version==True:
@@ -902,16 +956,18 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
 
     sample_realrank_varphy_mQQsX2B = compute_matrix_real_rank(sample_varphy_mQQsX2B) #should be the same as sample_realrank_X2B
 
+    sample_realrank_SpatialR2D2 = compute_matrix_real_rank(OriginalSpatialR2D2_preproc)
+    sample_realrank_SpatialdOTC = compute_matrix_real_rank(OriginalSpatialdOTC_preproc)
 
     ######################################################################################################################
     #### PLOTS ####
     ### Raw plots ####
-    ix = np.random.randint(0, sample_X.shape[0], n_samples)
-    plot_raw_varphy('norm',QQ2B_version, ix, epoch, PR_version, datasetA[ix], datasetB[ix], datasetQQ[ix], sample_X2B[ix], sample_B2X[ix], sample_X2B2X[ix], sample_B2X2B[ix], sample_B2X_X[ix], sample_X2B_B[ix])
-    plot_raw_varphy('varphy',QQ2B_version, ix, epoch, PR_version, OriginalA_preproc[ix], OriginalB_preproc[ix], OriginalQQ_preproc[ix], sample_varphy_X2B[ix], sample_varphy_B2X[ix], sample_varphy_X2B2X[ix], sample_varphy_B2X2B[ix], sample_varphy_B2X_X[ix], sample_varphy_X2B_B[ix])
-    plot_raw_varphy('realrank',QQ2B_version, ix, epoch, PR_version, sample_realrank_A[ix], sample_realrank_B[ix], sample_realrank_QQ[ix], sample_realrank_X2B[ix], sample_realrank_B2X[ix], sample_realrank_X2B2X[ix], sample_realrank_B2X2B[ix], sample_realrank_B2X_X[ix], sample_realrank_X2B_B[ix])
-    empty_frame=np.zeros((n_samples,28,28,1))
-    #plot_raw_varphy('varphy_reordered',QQ2B_version, ix, epoch, PR_version, OriginalA_preproc[ix], OriginalB_preproc[ix], OriginalQQ_preproc[ix], sample_varphy_reordered_X2B[ix],empty_frame, empty_frame, empty_frame, empty_frame, empty_frame)
+    #### pour limiter le nb de plots
+    if (epoch+1) % 100 == 1:
+        ix = np.random.randint(0, sample_X.shape[0], n_samples)
+        plot_raw_varphy('norm',QQ2B_version, ix, epoch, PR_version, datasetA[ix], datasetB[ix], datasetQQ[ix], sample_X2B[ix], sample_B2X[ix], sample_X2B2X[ix], sample_B2X2B[ix], sample_B2X_X[ix], sample_X2B_B[ix])
+        plot_raw_varphy('varphy',QQ2B_version, ix, epoch, PR_version, OriginalA_preproc[ix], OriginalB_preproc[ix], OriginalQQ_preproc[ix], sample_varphy_X2B[ix], sample_varphy_B2X[ix], sample_varphy_X2B2X[ix], sample_varphy_B2X2B[ix], sample_varphy_B2X_X[ix], sample_varphy_X2B_B[ix])
+        plot_raw_varphy('realrank',QQ2B_version, ix, epoch, PR_version, sample_realrank_A[ix], sample_realrank_B[ix], sample_realrank_QQ[ix], sample_realrank_X2B[ix], sample_realrank_B2X[ix], sample_realrank_X2B2X[ix], sample_realrank_B2X2B[ix], sample_realrank_B2X_X[ix], sample_realrank_X2B_B[ix])
 
     #### compute RMSE
     dict_norm_rmse=compute_some_rmse(QQ2B_version,is_DS,dict_norm_rmse,datasetA, datasetB, datasetQQ, sample_X2B, sample_B2X, sample_X2B2X, sample_B2X2B, sample_B2X_X, sample_X2B_B)
@@ -952,6 +1008,50 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         dict_realrank_localenergy["energy_mQQsX2B"].append(np.nanmean(maps_localenergy_varphy_mQQsX2B))
         plot_maps_localWD(epoch,QQ2B_version, False, dict_realrank_localenergy["maps_localenergy_A"], dict_realrank_localenergy["maps_localenergy_QQ"], maps_localenergy_varphy_X2B, maps_localenergy_varphy_mQQsX2B, "localenergy_realrank",path_plot=path_plot, subfolder = subfolder)
 
+    #### Global energy ####
+    if computation_globalenergy==True:
+        nb_timestep=OriginalA_preproc.shape[0]
+        coord_globalenergy=range(0,nb_timestep,nb_pas_escore)
+        #### For varphy
+        if not dict_varphy_globalenergy["energy_A"]:
+            maps_globalenergy_A=compute_globalenergy_array_new(OriginalA_preproc[coord_globalenergy,:,:], OriginalB_preproc[coord_globalenergy,:,:])
+            dict_varphy_globalenergy["energy_A"].append(np.nanmean(maps_globalenergy_A))
+        if not dict_varphy_globalenergy["energy_QQ"]:
+            maps_globalenergy_QQ=compute_globalenergy_array_new(OriginalQQ_preproc[coord_globalenergy,:,:], OriginalB_preproc[coord_globalenergy,:,:])
+            dict_varphy_globalenergy["energy_QQ"].append(np.nanmean(maps_globalenergy_QQ))
+        ### For R2D2 and dOTC
+        if not dict_varphy_globalenergy["energy_SpatialR2D2"]:
+            maps_globalenergy_SpatialR2D2=compute_globalenergy_array_new(OriginalSpatialR2D2_preproc[coord_globalenergy,:,:], OriginalB_preproc[coord_globalenergy,:,:])
+            dict_varphy_globalenergy["energy_SpatialR2D2"].append(np.nanmean(maps_globalenergy_SpatialR2D2))
+        if not dict_varphy_globalenergy["energy_SpatialdOTC"]:
+            maps_globalenergy_SpatialdOTC=compute_globalenergy_array_new(OriginalSpatialdOTC_preproc[coord_globalenergy,:,:], OriginalB_preproc[coord_globalenergy,:,:])
+            dict_varphy_globalenergy["energy_SpatialdOTC"].append(np.nanmean(maps_globalenergy_SpatialdOTC))
+
+        maps_globalenergy_varphy_X2B =compute_globalenergy_array_new(sample_varphy_X2B[coord_globalenergy,:,:], OriginalB_preproc[coord_globalenergy,:,:])
+        dict_varphy_globalenergy["energy_X2B"].append(np.nanmean(maps_globalenergy_varphy_X2B))
+        maps_globalenergy_varphy_mQQsX2B =compute_globalenergy_array_new(sample_varphy_mQQsX2B[coord_globalenergy,:,:], OriginalB_preproc[coord_globalenergy,:,:])
+        dict_varphy_globalenergy["energy_mQQsX2B"].append(np.nanmean(maps_globalenergy_varphy_mQQsX2B))
+        #### For realrank
+        if not dict_realrank_globalenergy["energy_A"]:
+            maps_globalenergy_A=compute_globalenergy_array_new(sample_realrank_A[coord_globalenergy,:,:], sample_realrank_B[coord_globalenergy,:,:])
+            dict_realrank_globalenergy["energy_A"].append(np.nanmean(maps_globalenergy_A))
+        if not dict_realrank_globalenergy["energy_QQ"]:
+            maps_globalenergy_QQ=compute_globalenergy_array_new(sample_realrank_QQ[coord_globalenergy,:,:], sample_realrank_B[coord_globalenergy,:,:])
+            dict_realrank_globalenergy["energy_QQ"].append(np.nanmean(maps_globalenergy_QQ))
+        ### For R2D2 and dOTC
+        if not dict_realrank_globalenergy["energy_SpatialR2D2"]:
+            maps_globalenergy_SpatialR2D2=compute_globalenergy_array_new(sample_realrank_SpatialR2D2[coord_globalenergy,:,:], sample_realrank_B[coord_globalenergy,:,:])
+            dict_realrank_globalenergy["energy_SpatialR2D2"].append(np.nanmean(maps_globalenergy_SpatialR2D2))
+        if not dict_realrank_globalenergy["energy_SpatialdOTC"]:
+            maps_globalenergy_SpatialdOTC=compute_globalenergy_array_new(sample_realrank_SpatialdOTC[coord_globalenergy,:,:], sample_realrank_B[coord_globalenergy,:,:])
+            dict_realrank_globalenergy["energy_SpatialdOTC"].append(np.nanmean(maps_globalenergy_SpatialdOTC))
+
+        maps_globalenergy_varphy_X2B =compute_globalenergy_array_new(sample_realrank_X2B[coord_globalenergy,:,:], sample_realrank_B[coord_globalenergy,:,:])
+        dict_realrank_globalenergy["energy_X2B"].append(np.nanmean(maps_globalenergy_varphy_X2B))
+        maps_globalenergy_varphy_mQQsX2B =compute_globalenergy_array_new(sample_realrank_varphy_mQQsX2B[coord_globalenergy,:,:], sample_realrank_B[coord_globalenergy,:,:])
+        dict_realrank_globalenergy["energy_mQQsX2B"].append(np.nanmean(maps_globalenergy_varphy_mQQsX2B))
+
+
     #Compute Mean Sd criteria
     if "data_A" not in dict_mean:
         res_mean_datasetA, res_sd_datasetA = compute_mean_sd_array_new(OriginalA_preproc)
@@ -983,7 +1083,9 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         title_="mean_pr"
 
     print("MAE X2B: " + str(round(dict_mean["mae_X2B"][-1],3)))
-    plot_maps(epoch,QQ2B_version, PR_version, dict_mean["data_A"], dict_mean["data_B"], dict_mean["data_QQ"] , res_mean_varphy_X2B, res_mean_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
+    #### pour limiter le nb de plots
+    if (epoch+1) % 100 == 1:
+        plot_maps(epoch,QQ2B_version, PR_version, dict_mean["data_A"], dict_mean["data_B"], dict_mean["data_QQ"] , res_mean_varphy_X2B, res_mean_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
 
     #### SD ####
     dict_sd_rel["mae_X2B"].append(np.mean(abs((res_sd_rel_varphy_X2B-dict_sd_rel["data_B"])/dict_sd_rel["data_B"])))
@@ -994,8 +1096,9 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         title_="sd_tas"
     else:
         title_="sd_pr"
-
-    plot_maps(epoch,QQ2B_version, True, dict_sd_rel["data_A"], dict_sd_rel["data_B"], dict_sd_rel["data_QQ"] , res_sd_rel_varphy_X2B, res_sd_rel_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
+    #### pour limiter le nb de plots
+    if (epoch+1) % 100 == 1:
+        plot_maps(epoch,QQ2B_version, True, dict_sd_rel["data_A"], dict_sd_rel["data_B"], dict_sd_rel["data_QQ"] , res_sd_rel_varphy_X2B, res_sd_rel_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
 
 
     #### compute_freq_dry
@@ -1005,7 +1108,9 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         res_freqdrydatasetQQ = compute_freqdry_array_new(OriginalQQ_preproc)
         res_freqdry_varphy_X2B = compute_freqdry_array_new(sample_varphy_X2B)
         res_freqdry_varphy_mQQsX2B = compute_freqdry_array_new(sample_varphy_mQQsX2B)
-        plot_maps(epoch, QQ2B_version, PR_version, res_freqdrydatasetA, res_freqdrydatasetB, res_freqdrydatasetQQ, res_freqdry_varphy_X2B, res_freqdry_varphy_mQQsX2B,"freqdry_pr", path_plot=path_plot, subfolder=subfolder)
+        #### pour limiter le nb de plots
+        if (epoch+1) % 100 == 1:
+            plot_maps(epoch, QQ2B_version, PR_version, res_freqdrydatasetA, res_freqdrydatasetB, res_freqdrydatasetQQ, res_freqdry_varphy_X2B, res_freqdry_varphy_mQQsX2B,"freqdry_pr", path_plot=path_plot, subfolder=subfolder)
 
     #Compute correlograms
     if "data_A" not in dict_correlogram:
@@ -1023,13 +1128,27 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         dict_correlogram_wt_remove["data_B"] = res_correlo_wt_remove_datasetB
         dict_correlogram_wt_remove["CspearmanB"] = CspearmanOriginalB_wt_remove
 
-
         res_correlo_datasetQQ, _, distance, CspearmanOriginalQQ = compute_correlo(True,OriginalQQ_preproc, ind, lon, lat, point_grid)
         res_correlo_wt_remove_datasetQQ, _, distance, CspearmanOriginalQQ_wt_remove = compute_correlo(False,OriginalQQ_preproc, ind, lon, lat, point_grid)
         dict_correlogram["data_QQ"]=res_correlo_datasetQQ
         dict_correlogram["CspearmanQQ"] = CspearmanOriginalQQ
         dict_correlogram_wt_remove["data_QQ"] = res_correlo_wt_remove_datasetQQ
         dict_correlogram_wt_remove["CspearmanQQ"] = CspearmanOriginalQQ_wt_remove
+
+        res_correlo_datasetSpatialR2D2, _, distance, CspearmanOriginalSpatialR2D2 = compute_correlo(True,OriginalSpatialR2D2_preproc, ind, lon, lat, point_grid)
+        res_correlo_wt_remove_datasetSpatialR2D2, _, distance, CspearmanOriginalSpatialR2D2_wt_remove = compute_correlo(False,OriginalSpatialR2D2_preproc, ind, lon, lat, point_grid)
+        dict_correlogram["data_SpatialR2D2"]=res_correlo_datasetSpatialR2D2
+        dict_correlogram["CspearmanSpatialR2D2"] = CspearmanOriginalSpatialR2D2
+        dict_correlogram_wt_remove["data_SpatialR2D2"] = res_correlo_wt_remove_datasetSpatialR2D2
+        dict_correlogram_wt_remove["CspearmanSpatialR2D2"] = CspearmanOriginalSpatialR2D2_wt_remove
+
+        res_correlo_datasetSpatialdOTC, _, distance, CspearmanOriginalSpatialdOTC = compute_correlo(True,OriginalSpatialdOTC_preproc, ind, lon, lat, point_grid)
+        res_correlo_wt_remove_datasetSpatialdOTC, _, distance, CspearmanOriginalSpatialdOTC_wt_remove = compute_correlo(False,OriginalSpatialdOTC_preproc, ind, lon, lat, point_grid)
+        dict_correlogram["data_SpatialdOTC"]=res_correlo_datasetSpatialdOTC
+        dict_correlogram["CspearmanSpatialdOTC"] = CspearmanOriginalSpatialdOTC
+        dict_correlogram_wt_remove["data_SpatialdOTC"] = res_correlo_wt_remove_datasetSpatialdOTC
+        dict_correlogram_wt_remove["CspearmanSpatialdOTC"] = CspearmanOriginalSpatialdOTC_wt_remove
+
 
     res_correlo_varphy_X2B, _, distance, Cspearman_varphy_X2B = compute_correlo(True,sample_varphy_X2B, ind, lon, lat, point_grid)
     res_correlo_wt_remove_varphy_X2B, _, distance, Cspearman_varphy_X2B_wt_remove = compute_correlo(False,sample_varphy_X2B, ind, lon, lat, point_grid)
@@ -1051,34 +1170,40 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         X_name="QQ"
     else:
         X_name="A"
-    pyplot.figure(figsize=(9,10))
-    title_crit="correlograms"
-    pyplot.subplot(2, 1, 1)
-    pyplot.plot(distance,dict_correlogram["data_A"],color="red")
-    pyplot.plot(distance,dict_correlogram["data_B"],color="black")
-    pyplot.plot(distance,dict_correlogram["data_QQ"], color= "orange")
-    pyplot.plot(distance,res_correlo_varphy_X2B,color="blue")
-    pyplot.plot(distance,res_correlo_varphy_mQQsX2B,color="green")
-    pyplot.legend(['A', 'B', 'QQ', X_name + '2B', 'mQQs' + X_name + '2B'], loc='upper right')
-    pyplot.title('MAE A: ' + str(round(dict_correlogram["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram["mae_QQ"][-1],3))+ ', ' + X_name + '2B: ' +str(round(dict_correlogram["mae_X2B"][-1],3)) + ', mQQs' + X_name + '2B: ' + str(round(dict_correlogram["mae_mQQsX2B"][-1],3))  ,fontsize=10, y=1)
-    pyplot.ylim((-1,1.05))
-    pyplot.ylabel(name_var + " Spearman spatial corr.")
-    pyplot.xlabel("Distance (km)")
+    #### pour limiter le nb de plots
+    if (epoch+1) % 100 == 1:
+        pyplot.figure(figsize=(9,10))
+        title_crit="correlograms"
+        pyplot.subplot(2, 1, 1)
+        pyplot.plot(distance,dict_correlogram["data_A"],color="red")
+        pyplot.plot(distance,dict_correlogram["data_B"],color="black")
+        pyplot.plot(distance,dict_correlogram["data_QQ"], color= "orange")
+        pyplot.plot(distance,res_correlo_varphy_X2B,color="blue")
+        pyplot.plot(distance,res_correlo_varphy_mQQsX2B,color="green")
+        pyplot.plot(distance,dict_correlogram["data_SpatialR2D2"], color="purple")
+        pyplot.plot(distance,dict_correlogram["data_SpatialdOTC"], color="cyan")
+        pyplot.legend(['A', 'B', 'QQ', X_name + '2B', 'mQQs' + X_name + '2B', 'R2D2', 'dOTC'], loc='upper right')
+        pyplot.title('MAE A: ' + str(round(dict_correlogram["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram["mae_QQ"][-1],3))+ ', ' + X_name + '2B: ' +str(round(dict_correlogram["mae_X2B"][-1],3)) + ', mQQs' + X_name + '2B: ' + str(round(dict_correlogram["mae_mQQsX2B"][-1],3))  ,fontsize=10, y=1)
+        pyplot.ylim((-1,1.05))
+        pyplot.ylabel(name_var + " Spearman spatial corr.")
+        pyplot.xlabel("Distance (km)")
 
-    pyplot.subplot(2, 1, 2)
-    pyplot.plot(distance,dict_correlogram_wt_remove["data_A"],color="red")
-    pyplot.plot(distance,dict_correlogram_wt_remove["data_B"],color="black")
-    pyplot.plot(distance,dict_correlogram_wt_remove["data_QQ"],color="orange")
-    pyplot.plot(distance,res_correlo_wt_remove_varphy_X2B,color="blue")
-    pyplot.plot(distance,res_correlo_wt_remove_varphy_mQQsX2B,color="green")
-    pyplot.legend(['A', 'B', 'QQ',  X_name + '2B', 'mQQs' + X_name + '2B'], loc='upper right')
-    pyplot.title('MAE A: ' + str(round(dict_correlogram_wt_remove["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram_wt_remove["mae_QQ"][-1],3)) +', ' + X_name + '2B: ' +str(round(dict_correlogram_wt_remove["mae_X2B"][-1],3)) + ', mQQs' + X_name + '2B: ' + str(round(dict_correlogram_wt_remove["mae_mQQsX2B"][-1],3)) ,fontsize=10, y=1)
-    pyplot.ylim((0.5,1.05))
-    pyplot.ylabel(name_var + " Spearman spatial corr.")
-    pyplot.xlabel("Distance (km)")
+        pyplot.subplot(2, 1, 2)
+        pyplot.plot(distance,dict_correlogram_wt_remove["data_A"],color="red")
+        pyplot.plot(distance,dict_correlogram_wt_remove["data_B"],color="black")
+        pyplot.plot(distance,dict_correlogram_wt_remove["data_QQ"],color="orange")
+        pyplot.plot(distance,res_correlo_wt_remove_varphy_X2B,color="blue")
+        pyplot.plot(distance,res_correlo_wt_remove_varphy_mQQsX2B,color="green")
+        pyplot.plot(distance,dict_correlogram_wt_remove["data_SpatialR2D2"], color="purple")
+        pyplot.plot(distance,dict_correlogram_wt_remove["data_SpatialdOTC"], color="cyan")
+        pyplot.legend(['A', 'B', 'QQ', X_name + '2B', 'mQQs' + X_name + '2B', 'R2D2', 'dOTC'], loc='upper right')
+        pyplot.title('MAE A: ' + str(round(dict_correlogram_wt_remove["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram_wt_remove["mae_QQ"][-1],3)) +', ' + X_name + '2B: ' +str(round(dict_correlogram_wt_remove["mae_X2B"][-1],3)) + ', mQQs' + X_name + '2B: ' + str(round(dict_correlogram_wt_remove["mae_mQQsX2B"][-1],3)) ,fontsize=10, y=1)
+        pyplot.ylim((0.5,1.05))
+        pyplot.ylabel(name_var + " Spearman spatial corr.")
+        pyplot.xlabel("Distance (km)")
 
-    pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '_%03d.png' % (epoch+1))
-    pyplot.close()
+        pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '_%03d.png' % (epoch+1))
+        pyplot.close()
 
     #### Plot Scatterplots for Cspearman and MSE ####
     pyplot.figure(figsize=(9,10))
@@ -1088,6 +1213,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
     pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),dict_correlogram["CspearmanQQ"].flatten(), c = 'orange', s=20, alpha= 1, label = "QQ", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),Cspearman_varphy_X2B.flatten(), c = 'blue',  s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(dict_correlogram["CspearmanB"].flatten(), Cspearman_varphy_mQQsX2B.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),dict_correlogram["CspearmanSpatialR2D2"].flatten() , c = 'purple', s=20, alpha= 1, label = "R2D2", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram["CspearmanB"].flatten(),dict_correlogram["CspearmanSpatialdOTC"].flatten() , c = 'cyan', s=20, alpha= 1, label = "dOTC", marker = '+', linewidth = 0.5,edgecolors = None)
     zlim_min = np.min(np.concatenate((dict_correlogram["CspearmanB"],dict_correlogram["CspearmanA"], dict_correlogram["CspearmanQQ"], Cspearman_varphy_X2B, Cspearman_varphy_mQQsX2B)))
     zlim_max = np.max(np.concatenate((dict_correlogram["CspearmanB"],dict_correlogram["CspearmanA"], dict_correlogram["CspearmanQQ"], Cspearman_varphy_X2B, Cspearman_varphy_mQQsX2B)))
     pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
@@ -1100,6 +1227,8 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
     pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),dict_correlogram_wt_remove["CspearmanQQ"].flatten(), c = 'orange', s=20, alpha= 1, label = "QQ", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),Cspearman_varphy_X2B_wt_remove.flatten(), c = 'blue',  s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(), Cspearman_varphy_mQQsX2B_wt_remove.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),dict_correlogram_wt_remove["CspearmanSpatialR2D2"].flatten() , c = 'purple', s=20, alpha= 1, label = "R2D2", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(dict_correlogram_wt_remove["CspearmanB"].flatten(),dict_correlogram_wt_remove["CspearmanSpatialdOTC"].flatten() , c = 'cyan', s=20, alpha= 1, label = "dOTC", marker = '+', linewidth = 0.5,edgecolors = None)
     zlim_min = np.min(np.concatenate((dict_correlogram_wt_remove["CspearmanB"], dict_correlogram_wt_remove["CspearmanA"], dict_correlogram_wt_remove["CspearmanQQ"], Cspearman_varphy_X2B_wt_remove, Cspearman_varphy_mQQsX2B_wt_remove)))
     zlim_max = np.max(np.concatenate((dict_correlogram_wt_remove["CspearmanB"], dict_correlogram_wt_remove["CspearmanA"], dict_correlogram_wt_remove["CspearmanQQ"], Cspearman_varphy_X2B_wt_remove, Cspearman_varphy_mQQsX2B_wt_remove)))
     pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
@@ -1122,11 +1251,63 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
     mse_CspearmanOriginalQQ = mse_Cspearman(dict_correlogram["CspearmanB"], dict_correlogram["CspearmanQQ"])
     mse_Cspearman_varphy_X2B = mse_Cspearman(dict_correlogram["CspearmanB"], Cspearman_varphy_X2B)
     mse_Cspearman_varphy_mQQsX2B = mse_Cspearman(dict_correlogram["CspearmanB"], Cspearman_varphy_mQQsX2B)
+    mse_CspearmanOriginalSpatialR2D2 = mse_Cspearman(dict_correlogram["CspearmanB"], dict_correlogram["CspearmanSpatialR2D2"])
+    mse_CspearmanOriginalSpatialdOTC = mse_Cspearman(dict_correlogram["CspearmanB"], dict_correlogram["CspearmanSpatialdOTC"])
 
     mse_CspearmanOriginalA_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"],dict_correlogram_wt_remove["CspearmanA"])
     mse_CspearmanOriginalQQ_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"],dict_correlogram_wt_remove["CspearmanQQ"])
     mse_Cspearman_varphy_X2B_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"], Cspearman_varphy_X2B_wt_remove)
     mse_Cspearman_varphy_mQQsX2B_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"], Cspearman_varphy_mQQsX2B_wt_remove)
+    mse_CspearmanOriginalSpatialR2D2_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"], dict_correlogram_wt_remove["CspearmanSpatialR2D2"])
+    mse_CspearmanOriginalSpatialdOTC_wt_remove = mse_Cspearman(dict_correlogram_wt_remove["CspearmanB"], dict_correlogram_wt_remove["CspearmanSpatialdOTC"])
+
+
+    #### Compute slope of MSE ###
+    x_QQ= mse_CspearmanOriginalQQ.flatten()
+    x_QQ = x_QQ[:,np.newaxis]
+    if not dict_slope_mse["slope_mse_A"]:
+        a_mse_CspearmanOriginalA, _, _, _ = np.linalg.lstsq(x_QQ,mse_CspearmanOriginalA.flatten(), rcond=-1)
+        a_mse_CspearmanOriginalA= a_mse_CspearmanOriginalA[0]
+        dict_slope_mse["slope_mse_A"].append(a_mse_CspearmanOriginalA)
+    if not dict_slope_mse["slope_mse_SpatialR2D2"]:
+        a_mse_CspearmanOriginalSpatialR2D2, _, _, _ = np.linalg.lstsq(x_QQ,mse_CspearmanOriginalSpatialR2D2.flatten(), rcond=-1)
+        a_mse_CspearmanOriginalSpatialR2D2= a_mse_CspearmanOriginalSpatialR2D2[0]
+        dict_slope_mse["slope_mse_SpatialR2D2"].append(a_mse_CspearmanOriginalSpatialR2D2)
+    if not dict_slope_mse["slope_mse_SpatialdOTC"]:
+        a_mse_CspearmanOriginalSpatialdOTC, _, _, _ = np.linalg.lstsq(x_QQ,mse_CspearmanOriginalSpatialdOTC.flatten(), rcond=-1)
+        a_mse_CspearmanOriginalSpatialdOTC= a_mse_CspearmanOriginalSpatialdOTC[0]
+        dict_slope_mse["slope_mse_SpatialdOTC"].append(a_mse_CspearmanOriginalSpatialdOTC)
+
+    a_mse_Cspearman_varphy_X2B, _, _, _ = np.linalg.lstsq(x_QQ,mse_Cspearman_varphy_X2B.flatten(), rcond=-1)
+    a_mse_Cspearman_varphy_X2B = a_mse_Cspearman_varphy_X2B[0]
+    dict_slope_mse["slope_mse_X2B"].append(a_mse_Cspearman_varphy_X2B)
+    a_mse_Cspearman_varphy_mQQsX2B, _, _, _ = np.linalg.lstsq(x_QQ,mse_Cspearman_varphy_mQQsX2B.flatten(), rcond=-1)
+    a_mse_Cspearman_varphy_mQQsX2B = a_mse_Cspearman_varphy_mQQsX2B[0]
+    dict_slope_mse["slope_mse_mQQsX2B"].append(a_mse_Cspearman_varphy_mQQsX2B)
+
+
+    x_QQ_wt_remove= mse_CspearmanOriginalQQ_wt_remove.flatten()
+    x_QQ_wt_remove = x_QQ_wt_remove[:,np.newaxis]
+    if not dict_slope_mse_wt_remove["slope_mse_A"]:
+        a_mse_CspearmanOriginalA_wt_remove, _, _, _ = np.linalg.lstsq(x_QQ_wt_remove,mse_CspearmanOriginalA_wt_remove.flatten(), rcond=-1)
+        a_mse_CspearmanOriginalA_wt_remove = a_mse_CspearmanOriginalA_wt_remove[0]
+        dict_slope_mse_wt_remove["slope_mse_A"].append(a_mse_CspearmanOriginalA_wt_remove)
+    if not dict_slope_mse_wt_remove["slope_mse_SpatialR2D2"]:
+        a_mse_CspearmanOriginalSpatialR2D2_wt_remove, _, _, _ = np.linalg.lstsq(x_QQ_wt_remove,mse_CspearmanOriginalSpatialR2D2_wt_remove.flatten(), rcond=-1)
+        a_mse_CspearmanOriginalSpatialR2D2_wt_remove= a_mse_CspearmanOriginalSpatialR2D2_wt_remove[0]
+        dict_slope_mse_wt_remove["slope_mse_SpatialR2D2"].append(a_mse_CspearmanOriginalSpatialR2D2_wt_remove)
+    if not dict_slope_mse_wt_remove["slope_mse_SpatialdOTC"]:
+        a_mse_CspearmanOriginalSpatialdOTC_wt_remove, _, _, _ = np.linalg.lstsq(x_QQ_wt_remove,mse_CspearmanOriginalSpatialdOTC_wt_remove.flatten(), rcond=-1)
+        a_mse_CspearmanOriginalSpatialdOTC_wt_remove= a_mse_CspearmanOriginalSpatialdOTC_wt_remove[0]
+        dict_slope_mse_wt_remove["slope_mse_SpatialdOTC"].append(a_mse_CspearmanOriginalSpatialdOTC_wt_remove)
+
+
+    a_mse_Cspearman_varphy_X2B_wt_remove, _, _, _ = np.linalg.lstsq(x_QQ_wt_remove,mse_Cspearman_varphy_X2B_wt_remove.flatten(), rcond=-1)
+    a_mse_Cspearman_varphy_X2B_wt_remove = a_mse_Cspearman_varphy_X2B_wt_remove[0]
+    dict_slope_mse_wt_remove["slope_mse_X2B"].append(a_mse_Cspearman_varphy_X2B_wt_remove)
+    a_mse_Cspearman_varphy_mQQsX2B_wt_remove, _, _, _ = np.linalg.lstsq(x_QQ_wt_remove,mse_Cspearman_varphy_mQQsX2B_wt_remove.flatten(), rcond=-1)
+    a_mse_Cspearman_varphy_mQQsX2B_wt_remove = a_mse_Cspearman_varphy_mQQsX2B_wt_remove[0]
+    dict_slope_mse_wt_remove["slope_mse_mQQsX2B"].append(a_mse_Cspearman_varphy_mQQsX2B_wt_remove)
 
 
     pyplot.figure(figsize=(9,10))
@@ -1136,23 +1317,52 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
     pyplot.scatter(mse_CspearmanOriginalQQ.flatten(),mse_CspearmanOriginalA.flatten() , c = 'red', s=20, alpha= 1, label = "A", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(mse_CspearmanOriginalQQ.flatten(),mse_Cspearman_varphy_X2B.flatten(), c = 'blue', s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(mse_CspearmanOriginalQQ.flatten(),mse_Cspearman_varphy_mQQsX2B.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
-    zlim_min = np.min(np.concatenate((mse_CspearmanOriginalA,mse_CspearmanOriginalQQ)))
+    pyplot.scatter(mse_CspearmanOriginalQQ.flatten(),mse_CspearmanOriginalSpatialR2D2.flatten(), c = 'purple', s=20,  alpha= 1, label = "R2D2", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(mse_CspearmanOriginalQQ.flatten(),mse_CspearmanOriginalSpatialdOTC.flatten(), c = 'cyan', s=20,  alpha= 1, label = "dOTC", marker = '+', linewidth = 0.5,edgecolors = None)
+    #xx to plot slope
+    xx = np.array([-100,100])
+    xx = xx[:, np.newaxis]
+    pyplot.plot(xx, dict_slope_mse["slope_mse_A"]*xx, c ='red', linewidth = 0.5)
+    pyplot.plot(xx, a_mse_Cspearman_varphy_X2B*xx, c ='blue', linewidth = 0.5)
+    pyplot.plot(xx, a_mse_Cspearman_varphy_mQQsX2B*xx, c ='green', linewidth = 0.5)
+    pyplot.plot(xx, dict_slope_mse["slope_mse_SpatialR2D2"]*xx, c ='purple', linewidth = 0.5)
+    pyplot.plot(xx, dict_slope_mse["slope_mse_SpatialdOTC"]*xx, c ='cyan', linewidth = 0.5)
+
+    zlim_min = -(np.max(np.concatenate((mse_CspearmanOriginalA,mse_CspearmanOriginalQQ))))/20 #np.min(np.concatenate((mse_CspearmanOriginalA,mse_CspearmanOriginalQQ)))
     zlim_max = np.max(np.concatenate((mse_CspearmanOriginalA,mse_CspearmanOriginalQQ)))
     pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
+    #print(dict_slope_mse["slope_mse_A"])
+    pyplot.title("Slope of A: " + str(round(dict_slope_mse["slope_mse_A"][0],4)) + ", mQQs" + X_name + "2B: " + str(round(a_mse_Cspearman_varphy_mQQsX2B,4)) + ", R2D2: " + str(round(dict_slope_mse["slope_mse_SpatialR2D2"][0],4)) + ", dOTC: " + str(round(dict_slope_mse["slope_mse_SpatialdOTC"][0],4)), fontsize=7)
     pyplot.legend(loc = 'upper left')
     pyplot.ylabel(name_var + " MSE (Model and MBC data)")
     pyplot.xlabel(name_var + " MSE (QQ)")
+    pyplot.ylim(zlim_min, zlim_max)
+    pyplot.xlim(zlim_min, zlim_max)
 
     pyplot.subplot(2, 1, 2)
     pyplot.scatter(mse_CspearmanOriginalQQ_wt_remove.flatten(),mse_CspearmanOriginalA_wt_remove.flatten() , c = 'red', s=20, alpha= 1, label = "A", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(mse_CspearmanOriginalQQ_wt_remove.flatten(),mse_Cspearman_varphy_X2B_wt_remove.flatten(), c = 'blue', s=20, alpha= 1, label = X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
     pyplot.scatter(mse_CspearmanOriginalQQ_wt_remove.flatten(),mse_Cspearman_varphy_mQQsX2B_wt_remove.flatten(), c = 'green', s=20,  alpha= 1, label = "mQQs" + X_name + "2B", marker = '+', linewidth = 0.5,edgecolors = None)
-    zlim_min = np.min(np.concatenate((mse_CspearmanOriginalA_wt_remove,mse_CspearmanOriginalQQ_wt_remove)))
+    pyplot.scatter(mse_CspearmanOriginalQQ_wt_remove.flatten(),mse_CspearmanOriginalSpatialR2D2_wt_remove.flatten() , c = 'purple', s=20, alpha= 1, label = "R2D2", marker = '+', linewidth = 0.5,edgecolors = None)
+    pyplot.scatter(mse_CspearmanOriginalQQ_wt_remove.flatten(),mse_CspearmanOriginalSpatialdOTC_wt_remove.flatten() , c = 'cyan', s=20, alpha= 1, label = "dOTC", marker = '+', linewidth = 0.5,edgecolors = None)
+    #xx to plot slope
+    xx = np.array([-100,100])
+    xx = xx[:, np.newaxis]
+    pyplot.plot(xx, dict_slope_mse_wt_remove["slope_mse_A"]*xx, c ='red', linewidth = 0.5)
+    pyplot.plot(xx, a_mse_Cspearman_varphy_X2B_wt_remove*xx, c ='blue', linewidth = 0.5)
+    pyplot.plot(xx, a_mse_Cspearman_varphy_mQQsX2B_wt_remove*xx, c ='green', linewidth = 0.5)
+    pyplot.plot(xx, dict_slope_mse_wt_remove["slope_mse_SpatialR2D2"]*xx, c ='purple', linewidth = 0.5)
+    pyplot.plot(xx, dict_slope_mse_wt_remove["slope_mse_SpatialdOTC"]*xx, c ='cyan', linewidth = 0.5)
+
+    zlim_min = -(np.max(np.concatenate((mse_CspearmanOriginalA_wt_remove,mse_CspearmanOriginalQQ_wt_remove))))/20 #np.min(np.concatenate((mse_CspearmanOriginalA_wt_remove,mse_CspearmanOriginalQQ_wt_remove)))
     zlim_max = np.max(np.concatenate((mse_CspearmanOriginalA_wt_remove,mse_CspearmanOriginalQQ_wt_remove)))
     pyplot.plot([zlim_min, zlim_max ], [zlim_min, zlim_max], color = 'black', linewidth = 0.5, linestyle='dashed')
     pyplot.legend(loc = 'upper left')
     pyplot.ylabel(name_var + " MSE (Model and MBC data)")
     pyplot.xlabel(name_var + " MSE (QQ)")
+    pyplot.ylim(zlim_min, zlim_max)
+    pyplot.xlim(zlim_min, zlim_max)
+    pyplot.title("Slope of A: " + str(round(dict_slope_mse_wt_remove["slope_mse_A"][0],4)) + ", mQQs" + X_name + "2B: " + str(round(a_mse_Cspearman_varphy_mQQsX2B_wt_remove,4)) + ", R2D2: " + str(round(dict_slope_mse_wt_remove["slope_mse_SpatialR2D2"][0],4)) + ", dOTC: " + str(round(dict_slope_mse_wt_remove["slope_mse_SpatialdOTC"][0],4)), fontsize=7)
 
     pyplot.savefig(path_plot + '/' + subfolder + '/plot_'+ title_crit + '_%03d.png' % (epoch+1))
     pyplot.close()
@@ -1169,8 +1379,9 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
         title_="acf1_tas"
     else:
         title_="acf1_pr"
-
-    plot_maps(epoch,QQ2B_version, False, res_acf1_datasetA, res_acf1_datasetB, res_acf1_datasetQQ, res_acf1_varphy_X2B, res_acf1_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
+    #### pour limiter le nb de plots
+    if (epoch+1) % 100 == 1:
+        plot_maps(epoch,QQ2B_version, False, res_acf1_datasetA, res_acf1_datasetB, res_acf1_datasetQQ, res_acf1_varphy_X2B, res_acf1_varphy_mQQsX2B, title_,path_plot=path_plot, subfolder=subfolder)
 
     #### Score_discB ####
     def compute_score_discB(dict_score, disc, data):
@@ -1214,7 +1425,7 @@ def plot_some_raw_maps_and_compute_rmse(epoch, is_DS, rank_version,PR_version, t
 
     plot_dict_score_discB(QQ2B_version, dict_score_discB, path_plot, subfolder)
 
-    return dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB
+    return dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_slope_mse, dict_slope_mse_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_varphy_globalenergy, dict_realrank_globalenergy, dict_score_discB
 
 
 def plot_dict_score_discB(QQ2B_version, dict_score, path_plot, subfolder):
@@ -1270,53 +1481,65 @@ def alla_Cannon(data_marg, data_struct): ### reorder data_marg with struct. of d
 
 
 
-def plot_dict_localenergy(QQ2B_version,nb_epoch_for_eval, nb_pas_escore, dict_varphy_localenergy, dict_realrank_localenergy, path_plot, subfolder):
+def plot_dict_energy(QQ2B_version,nb_epoch_for_eval, nb_pas_escore, local_or_global, dict_varphy_energy, dict_realrank_energy, path_plot, subfolder):
     if QQ2B_version==True:
         X_name="QQ"
     else:
         X_name="A"
-    np.save(path_plot+'/models/energy_dict_varphy_localenergy' + subfolder + '.npy',dict_varphy_localenergy)
-    np.save(path_plot+'/models/energy_dict_realrank_localenergy' + subfolder + '.npy',dict_realrank_localenergy)
+    if local_or_global=="local":
+        energy_name="local"
+    else:
+        energy_name="global"
+    np.save(path_plot+'/models/energy_dict_varphy_' + energy_name + 'energy' + subfolder + '.npy',dict_varphy_energy)
+    np.save(path_plot+'/models/energy_dict_realrank_' + energy_name + 'energy' + subfolder + '.npy',dict_realrank_energy)
     pyplot.figure(figsize=(11,11))
     pyplot.subplot(2,1,1)
-    pyplot.hlines(dict_varphy_localenergy["energy_A"],xmin=0, xmax=len(dict_varphy_localenergy["energy_X2B"])-1,label='varphy_A', color= "red")
-    pyplot.hlines(dict_varphy_localenergy["energy_QQ"],xmin=0, xmax=len(dict_varphy_localenergy["energy_X2B"])-1, label='varphy_QQ',color='orange')
-    pyplot.plot(dict_varphy_localenergy["energy_X2B"], label='varphy_' + X_name + '2B', color= "blue")
-    pyplot.plot(dict_varphy_localenergy["energy_mQQsX2B"], label='varphy_mQQs' + X_name + '2B', color= "green")
-    #pyplot.plot(dict_varphy_localenergy["energy_mX2BsQQ"], label='varphy_m' + X_name + '2BsQQ', color= "purple")
-    val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_varphy_localenergy["energy_X2B"]))
-    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_varphy_localenergy["energy_mQQsX2B"]))
-    pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_varphy_localenergy["energy_A"][0],2)) + ", QQ: " + str(round(dict_varphy_localenergy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " + str(round(val_X2B,2)) + " at epo. "+  str(idx_X2B*nb_epoch_for_eval+1) + ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "+  str(idx_mQQsX2B*nb_epoch_for_eval+1), fontsize=7)
+    pyplot.hlines(dict_varphy_energy["energy_A"],xmin=0, xmax=len(dict_varphy_energy["energy_X2B"])-1,label='varphy_A', color= "red")
+    pyplot.hlines(dict_varphy_energy["energy_QQ"],xmin=0, xmax=len(dict_varphy_energy["energy_X2B"])-1, label='varphy_QQ',color='orange')
+    pyplot.plot(dict_varphy_energy["energy_X2B"], label='varphy_' + X_name + '2B', color= "blue")
+    pyplot.plot(dict_varphy_energy["energy_mQQsX2B"], label='varphy_mQQs' + X_name + '2B', color= "green")
+    val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_varphy_energy["energy_X2B"]))
+    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_varphy_energy["energy_mQQsX2B"]))
+    if local_or_global=="global":
+        pyplot.hlines(dict_varphy_energy["energy_SpatialR2D2"], xmin=0, xmax=len(dict_varphy_energy["energy_X2B"])-1, label='varphy_SpatialR2D2', color= "purple")
+        pyplot.hlines(dict_varphy_energy["energy_SpatialdOTC"],  xmin=0, xmax=len(dict_varphy_energy["energy_X2B"])-1, label='varphy_SpatialdOTC', color= "cyan")
+        pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_varphy_energy["energy_A"][0],2)) + ", QQ: " + str(round(dict_varphy_energy["energy_QQ"][0],2)) + ", R2D2: " + str(round(dict_varphy_energy["energy_SpatialR2D2"][0],2)) + ", dOTC: " + str(round(dict_varphy_energy["energy_SpatialdOTC"][0],2)) + ", best " + X_name + "2B: " + str(round(val_X2B,2)) + " at epo. "+  str(idx_X2B*nb_epoch_for_eval+1) + ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "+  str(idx_mQQsX2B*nb_epoch_for_eval+1), fontsize=7)
+    else:
+        pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_varphy_energy["energy_A"][0],2)) + ", QQ: " + str(round(dict_varphy_energy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " + str(round(val_X2B,2)) + " at epo. "+  str(idx_X2B*nb_epoch_for_eval+1) + ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "+  str(idx_mQQsX2B*nb_epoch_for_eval+1), fontsize=7)
     pyplot.legend()
-    pyplot.ylim((0,dict_varphy_localenergy["energy_QQ"][0]*2))
-    pyplot.xticks(range(0,len(dict_varphy_localenergy["energy_X2B"]),3), range(0,len(dict_varphy_localenergy["energy_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.ylim((0,dict_varphy_energy["energy_A"][0]*1.5))
+    pyplot.xticks(range(0,len(dict_varphy_energy["energy_X2B"]),max(1,int(len(dict_varphy_energy["energy_X2B"])/5))), range(0,len(dict_varphy_energy["energy_X2B"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_varphy_energy["energy_X2B"])/5)))))
 
     pyplot.subplot(2,1,2)
-    pyplot.hlines(dict_realrank_localenergy["energy_A"],xmin=0, xmax=len(dict_realrank_localenergy["energy_X2B"])-1,label='realrank_A', color= "red")
-    pyplot.hlines(dict_realrank_localenergy["energy_QQ"],xmin=0, xmax=len(dict_realrank_localenergy["energy_X2B"])-1, label='realrank_QQ',color='orange')
-    pyplot.plot(dict_realrank_localenergy["energy_X2B"], label='realrank_' + X_name + '2B', color= "blue")
-    pyplot.plot(dict_realrank_localenergy["energy_mQQsX2B"], label='realrank_mQQs' + X_name + '2B', color= "green")
-    #pyplot.plot(dict_realrank_localenergy["energy_mX2BsQQ"], label='realrank_m' + X_name + '2BsQQ', color= "purple")
-    val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_realrank_localenergy["energy_X2B"]))
-    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_realrank_localenergy["energy_mQQsX2B"]))
-    pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_realrank_localenergy["energy_A"][0],2)) + ", QQ: " + str(round(dict_realrank_localenergy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*nb_epoch_for_eval+1) +  ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "  +  str(idx_mQQsX2B*nb_epoch_for_eval+1) , fontsize=7)
+    pyplot.hlines(dict_realrank_energy["energy_A"],xmin=0, xmax=len(dict_realrank_energy["energy_X2B"])-1,label='realrank_A', color= "red")
+    pyplot.hlines(dict_realrank_energy["energy_QQ"],xmin=0, xmax=len(dict_realrank_energy["energy_X2B"])-1, label='realrank_QQ',color='orange')
+    pyplot.plot(dict_realrank_energy["energy_X2B"], label='realrank_' + X_name + '2B', color= "blue")
+    pyplot.plot(dict_realrank_energy["energy_mQQsX2B"], label='realrank_mQQs' + X_name + '2B', color= "green")
+    val_X2B, idx_X2B = min((val, idx) for (idx, val) in enumerate(dict_realrank_energy["energy_X2B"]))
+    val_mQQsX2B, idx_mQQsX2B = min((val, idx) for (idx, val) in enumerate(dict_realrank_energy["energy_mQQsX2B"]))
+    if local_or_global=="global":
+        pyplot.hlines(dict_realrank_energy["energy_SpatialR2D2"],  xmin=0, xmax=len(dict_realrank_energy["energy_X2B"])-1, label='realrank_SpatialR2D2', color= "purple")
+        pyplot.hlines(dict_realrank_energy["energy_SpatialdOTC"],  xmin=0, xmax=len(dict_realrank_energy["energy_X2B"])-1, label='realrank_SpatialdOTC', color= "cyan")
+        pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_realrank_energy["energy_A"][0],2)) + ", QQ: " + str(round(dict_realrank_energy["energy_QQ"][0],2)) + ", R2D2: " + str(round(dict_realrank_energy["energy_SpatialR2D2"][0],2)) + ", dOTC: " + str(round(dict_realrank_energy["energy_SpatialdOTC"][0],2)) + ", best " + X_name + "2B: " + str(round(val_X2B,2)) + " at epo. "+  str(idx_X2B*nb_epoch_for_eval+1) + ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "+  str(idx_mQQsX2B*nb_epoch_for_eval+1), fontsize=7)
+    else:
+        pyplot.title("nb.escore: " + str(nb_pas_escore) + ", A: " + str(round(dict_realrank_energy["energy_A"][0],2)) + ", QQ: " + str(round(dict_realrank_energy["energy_QQ"][0],2)) + ", best " + X_name + "2B: " +  str(round(val_X2B,2)) + " at epo. "  +  str(idx_X2B*nb_epoch_for_eval+1) +  ", best mQQs" + X_name + "2B: " +  str(round(val_mQQsX2B,2)) + " at epo. "  +  str(idx_mQQsX2B*nb_epoch_for_eval+1) , fontsize=7)
     pyplot.legend()
-    pyplot.ylim((0,dict_realrank_localenergy["energy_QQ"][0]*2))
-    pyplot.xticks(range(0,len(dict_varphy_localenergy["energy_X2B"]),3), range(0,len(dict_varphy_localenergy["energy_X2B"])*nb_epoch_for_eval,nb_epoch_for_eval*3))
+    pyplot.ylim((0,dict_realrank_energy["energy_A"][0]*1.5))
+    pyplot.xticks(range(0,len(dict_varphy_energy["energy_X2B"]),max(1,int(len(dict_varphy_energy["energy_X2B"])/5))), range(0,len(dict_varphy_energy["energy_X2B"])*nb_epoch_for_eval,max(1,int(nb_epoch_for_eval*int(len(dict_varphy_energy["energy_X2B"])/5)))))
 
  #save plot to file
-    pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_localenergy.png')
+    pyplot.savefig(path_plot + '/' + subfolder + '/plot_history_' + energy_name + 'energy.png')
     pyplot.close()
 
 
 
-def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS, computation_localWD, computation_localenergy, genX2B, genB2X, discX, discB, comb_model, CalibA, CalibB, CalibQQ, ProjA, ProjB, ProjQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalProjA, OriginalProjB, OriginalProjQQ, ind, lon, lat,point_grid,path_to_save ,minX=None,maxX=None,minB=None,maxB=None,n_epochs=1000, n_batch=32, nb_epoch_for_eval=100, nb_pas_escore = 1):
+def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS, computation_localWD, computation_localenergy, computation_globalenergy, genX2B, genB2X, discX, discB, comb_model, CalibA, CalibB, CalibQQ, ProjA, ProjB, ProjQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalCalibSpatialR2D2, OriginalCalibSpatialdOTC, OriginalProjA, OriginalProjB, OriginalProjQQ, OriginalProjSpatialR2D2, OriginalProjSpatialdOTC, ind, lon, lat,point_grid,path_to_save ,minX=None,maxX=None,minB=None,maxB=None,n_epochs=1000, n_batch=32, nb_epoch_for_eval=100, nb_pas_escore = 1):
 
     #### Define train and validation set
     trainsetB = np.copy(CalibB)
 
     if PR_version==True:
-        th_Obs = np.min(np.concatenate((OriginalCalibB[OriginalCalibB>0],OriginalProjB[OriginalProjB>0])))
+        th_Obs = np.min(OriginalCalibB[OriginalCalibB>0])
     else:
         th_Obs = None
 
@@ -1337,11 +1560,17 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
     ##########################################################################
     #### Calib dict ####
     #### Init dict for mae
-    keys_mae = ["mae_A", "mae_QQ", "mae_X2B", "mae_mQQsX2B"]
+    keys_mae = ["mae_A", "mae_QQ", "mae_X2B", "mae_mQQsX2B", "mae_SpatialR2D2", "mae_SpatialdOTC"]
     dict_mean = {key: [] for key in keys_mae}
     dict_sd_rel = {key: [] for key in keys_mae}
     dict_correlogram = {key: [] for key in keys_mae}
     dict_correlogram_wt_remove = {key: [] for key in keys_mae}
+
+    #### Init dict for slope of mse_Cspearman
+    keys_slope_mse = ["slope_mse_A", "slope_mse_QQ", "slope_mse_X2B", "slope_mse_mQQsX2B", "slope_mse_SpatialdOTC", "slope_mse_SpatialR2D2"]
+    dict_slope_mse = {key: [] for key in keys_slope_mse}
+    dict_slope_mse_wt_remove = {key: [] for key in keys_slope_mse}
+
 
     #### Init dict for rmse 
     keys_rmse = ["rmse_A","rmse_B2X2B", "rmse_X2B_B", "rmse_X2B", "rmse_X2B2X", "rmse_B2X_X","rmse_B2X", "rmse_QQ"]
@@ -1355,9 +1584,13 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
         dict_realrank_localwd["bin_size"]=[0.05]*9
 
     #### Init dict for localenergy
-    keys_energy = ["energy_A","energy_X2B", "energy_QQ", "energy_mQQsX2B"]#, "energy_mX2BsQQ"]
+    keys_energy = ["energy_A","energy_X2B", "energy_QQ", "energy_mQQsX2B", "energy_SpatialdOTC", "energy_SpatialR2D2"]#, "energy_mX2BsQQ"]
     dict_varphy_localenergy = {key: [] for key in keys_energy}
     dict_realrank_localenergy = {key: [] for key in keys_energy}
+
+    #### Init dict for globalenergy
+    dict_varphy_globalenergy = {key: [] for key in keys_energy}
+    dict_realrank_globalenergy = {key: [] for key in keys_energy}
 
     #### Init dict for score_discB
     keys_score_discB = ["score_discB_A", "score_discB_B","score_discB_X2B", "score_discB_QQ", "score_discB_mQQsX2B"]
@@ -1372,6 +1605,11 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
     proj_dict_correlogram = {key: [] for key in keys_mae}
     proj_dict_correlogram_wt_remove = {key: [] for key in keys_mae}
 
+    #### Init dict for slope of mse_Cspearman
+    proj_dict_slope_mse = {key: [] for key in keys_slope_mse}
+    proj_dict_slope_mse_wt_remove = {key: [] for key in keys_slope_mse}
+
+
     #### Init dict for rmse
     proj_dict_norm_rmse = {key: [] for key in keys_rmse}
     proj_dict_varphy_rmse = {key: [] for key in keys_rmse}
@@ -1384,6 +1622,11 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
     #### Init dict for localenergy
     proj_dict_varphy_localenergy = {key: [] for key in keys_energy}
     proj_dict_realrank_localenergy = {key: [] for key in keys_energy}
+
+    #### Init dict for globalenergy
+    proj_dict_varphy_globalenergy = {key: [] for key in keys_energy}
+    proj_dict_realrank_globalenergy = {key: [] for key in keys_energy}
+
 
     #### Init dict for score_discB
     proj_dict_score_discB = {key: {} for key in keys_score_discB}
@@ -1433,41 +1676,70 @@ def train_combined_new(rank_version,PR_version, QQ2B_version, CV_version, is_DS,
             ######################################
             #### Evaluation of training data #####
             print("eval calib")
-            dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, th_Obs, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X,discB, CalibA, CalibB, CalibQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, minX, maxX, minB, maxB,dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "calib", nb_pas_escore = nb_pas_escore)
+            dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_slope_mse, dict_slope_mse_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_varphy_globalenergy, dict_realrank_globalenergy,dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, th_Obs, QQ2B_version,  computation_localWD, computation_localenergy, computation_globalenergy, genX2B, genB2X,discB, CalibA, CalibB, CalibQQ, OriginalCalibA, OriginalCalibB, OriginalCalibQQ, OriginalCalibSpatialR2D2, OriginalCalibSpatialdOTC, minX, maxX, minB, maxB,dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, dict_slope_mse, dict_slope_mse_wt_remove, dict_norm_rmse, dict_varphy_rmse, dict_realrank_localwd, dict_varphy_localenergy, dict_realrank_localenergy, dict_varphy_globalenergy, dict_realrank_globalenergy, dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "calib", nb_pas_escore = nb_pas_escore)
 
             plot_dict_rmse(QQ2B_version, nb_epoch_for_eval, is_DS,dict_norm_rmse,dict_varphy_rmse,path_to_save, subfolder="calib")
-            #if computation_localWD==True:
-            #    plot_dict_localwdenergy(dict_realrank_localwd,dict_realrank_localenergy,path_to_save, subfolder= "calib")
             if computation_localenergy==True:
-                plot_dict_localenergy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, dict_varphy_localenergy,dict_realrank_localenergy,path_to_save, subfolder = "calib")
+                plot_dict_energy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, "local", dict_varphy_localenergy,dict_realrank_localenergy,path_to_save, subfolder = "calib")
+            if computation_globalenergy==True:
+                plot_dict_energy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, "global", dict_varphy_globalenergy,dict_realrank_globalenergy,path_to_save, subfolder = "calib")
             #plot history of criteria
             plot_history_criteria(QQ2B_version, nb_epoch_for_eval,dict_mean, "mae_mean",-0.01,dict_mean["mae_A"][0]*1.5,path_to_save, subfolder= "calib")
             plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_sd_rel, "mae_sd_rel",-0.01,dict_sd_rel["mae_A"][0]*1.5, path_to_save, subfolder= "calib")
             plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_correlogram, "mae_correlogram",-0.01,dict_correlogram["mae_QQ"][0]*2,path_to_save, subfolder="calib")
             plot_history_criteria(QQ2B_version, nb_epoch_for_eval, dict_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,dict_correlogram_wt_remove["mae_QQ"][0]*2,path_to_save, subfolder= "calib")
+            plot_history_slope_mse(QQ2B_version, nb_epoch_for_eval, dict_slope_mse, "slope_mse",-0.01,dict_slope_mse["slope_mse_A"][0]*1.5, path_to_save, subfolder= "calib")
+            plot_history_slope_mse(QQ2B_version, nb_epoch_for_eval, dict_slope_mse_wt_remove, "slope_mse_wt_remove",-0.01,dict_slope_mse_wt_remove["slope_mse_A"][0]*1.5, path_to_save, subfolder= "calib")
+
+
 
             #########################################
             ##### Evaluation of validation data #####
             #### To do
             if CV_version is not "PC0":
                 print("eval proj")
-                proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, th_Obs, QQ2B_version,  computation_localWD, computation_localenergy, genX2B, genB2X, discB, ProjA, ProjB, ProjQQ, OriginalProjA, OriginalProjB, OriginalProjQQ, minX, maxX, minB, maxB, proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "proj", nb_pas_escore = nb_pas_escore)
+                proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_slope_mse, proj_dict_slope_mse_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_varphy_globalenergy, proj_dict_realrank_globalenergy, proj_dict_score_discB = plot_some_raw_maps_and_compute_rmse(i,is_DS,rank_version, PR_version, th_Obs, QQ2B_version,  computation_localWD, computation_localenergy, computation_globalenergy, genX2B, genB2X, discB, ProjA, ProjB, ProjQQ, OriginalProjA, OriginalProjB, OriginalProjQQ,OriginalProjSpatialR2D2, OriginalProjSpatialdOTC, minX, maxX, minB, maxB, proj_dict_mean, proj_dict_sd_rel, proj_dict_correlogram, proj_dict_correlogram_wt_remove, proj_dict_slope_mse, proj_dict_slope_mse_wt_remove, proj_dict_norm_rmse, proj_dict_varphy_rmse, proj_dict_realrank_localwd, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy, proj_dict_varphy_globalenergy, proj_dict_realrank_globalenergy, proj_dict_score_discB, ind, lon, lat, point_grid, path_to_save, subfolder= "proj", nb_pas_escore = nb_pas_escore)
 
                 plot_dict_rmse(QQ2B_version, nb_epoch_for_eval,  is_DS, proj_dict_norm_rmse, proj_dict_varphy_rmse,path_to_save, subfolder="proj")
-                #if computation_localWD==True:
-                #    plot_dict_localwdenergy(proj_dict_realrank_localwd,proj_dict_realrank_localenergy,path_to_save, subfolder= "proj")
                 if computation_localenergy==True:
-                    plot_dict_localenergy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, proj_dict_varphy_localenergy, proj_dict_realrank_localenergy,path_to_save, subfolder = "proj")
+                    plot_dict_energy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, "local", proj_dict_varphy_localenergy, proj_dict_realrank_localenergy,path_to_save, subfolder = "proj")
+                if computation_globalenergy==True:
+                    plot_dict_energy(QQ2B_version, nb_epoch_for_eval, nb_pas_escore, "global", proj_dict_varphy_globalenergy, proj_dict_realrank_globalenergy,path_to_save, subfolder = "proj")
                 #plot history of criteria
                 plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_mean, "mae_mean",-0.01,dict_mean["mae_A"][0]*1.5,path_to_save, subfolder= "proj")
                 plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_sd_rel, "mae_sd_rel",-0.01,dict_sd_rel["mae_A"][0]*1.5,path_to_save, subfolder= "proj")
                 plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_correlogram, "mae_correlogram",-0.01,proj_dict_correlogram["mae_QQ"][0]*2,path_to_save, subfolder="proj")
                 plot_history_criteria(QQ2B_version, nb_epoch_for_eval, proj_dict_correlogram_wt_remove, "mae_correlogram_wt_remove",-0.01,proj_dict_correlogram_wt_remove["mae_QQ"][0]*2,path_to_save, subfolder= "proj")
+                plot_history_slope_mse(QQ2B_version, nb_epoch_for_eval, proj_dict_slope_mse, "slope_mse",-0.01,proj_dict_slope_mse["slope_mse_A"][0]*1.5, path_to_save, subfolder= "proj")
+                plot_history_slope_mse(QQ2B_version, nb_epoch_for_eval, proj_dict_slope_mse_wt_remove, "slope_mse_wt_remove",-0.01,proj_dict_slope_mse_wt_remove["slope_mse_A"][0]*1.5, path_to_save, subfolder= "proj")
+
 
         #####EARLY STOPPING
         #if i>50 and (np.mean(g_hist[-2000:])>3.5 or np.std(g_hist[-2000:]) >0.26):
         #    print('BREAK! For the 2000 last points: mean_gloss=%.3f, sd_gloss=%.3f ' % (np.mean(g_hist[-2000:] ), np.std(g_hist[-2000:])))
         #    break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1587,3 +1859,212 @@ def plot_dict_localwdenergy(dict_realrank_localwd, dict_realrank_localenergy, pa
     pyplot.close()
 
 
+#A proposer a Mathieu et Soulivanh
+#def load_RData_rank_with_gaussianization(RData_file,variable,index_temporal):
+#    load_data = robjects.r.load(RData_file + '.RData')
+#    dataset=robjects.r[variable]
+#    X = np.array(dataset)
+#    X= np.transpose(X, (2,  1, 0))
+#    X= X[index_temporal,:,:]
+#    lon =  robjects.r['LON_Paris']
+#    lon = np.array(lon)
+#    lat =  robjects.r['LAT_Paris']
+#    lat = np.array(lat)
+#    ind = robjects.r['IND_Paris']
+#    ind = np.array(ind)-1
+#    point_grid = range(784)
+#    # expand to 3d, e.g. add channels dimension
+#    X = expand_dims(X, axis=-1)
+#    # convert from unsigned ints to floats
+#    X = X.astype('float32')
+#    #Save original data
+#    OriginalX = np.copy(X)
+#
+#    # scale with rank by grid cells
+#    for k in range(28):
+#        for l in range(28):
+#            X[:,k,l,0]=(rankdata(X[:,k,l,0],method="ordinal")/len(X[:,k,l,0]))
+#    #####ATTENTION ESSAI
+#    min_=[None]*28*28
+#    max_=[None]*28*28
+#    Y = np.copy(X)
+#    n=-1
+#    for k in range(28):
+#        for l in range(28):
+#            n=n+1
+#            Y[:,k,l,0]=norm.ppf(X[:,k,l,0]-0.0001)
+#            max_[n]=Y[:,k,l,:].max()
+#            min_[n]=Y[:,k,l,:].min()
+#    Z=np.copy(Y)
+#    n=-1
+#    for k in range(28):
+#        for l in range(28):
+#            n=n+1
+#            Z[:,k,l,:]=(Y[:,k,l,:]-min_[n])/(max_[n]-min_[n])
+#    min_=None
+#    max_=None
+#    return Z, lon, lat, min_, max_, ind, point_grid, OriginalX
+##### END ATTENTION
+
+#def load_RData_rank(RData_file,variable,index_temporal,region='Paris'):
+#    if "SAFRANdetbili" in RData_file:
+#         load_data = np.load(RData_file + ".npz")
+#         ### Load npy file: no need to invert axes (only for RData)
+#         X = load_data[variable]
+#         X = np.transpose(X,(2,1,0))
+#         ### but need of LON/LAT/IND: picked in SAFRANdet
+#         lon = load_data['LON_'+ region]
+#         lat = load_data['LAT_' + region]
+#         ind = load_data['IND_' + region]
+#         point_grid = range(784)
+#    else:
+#        load_data = robjects.r.load(RData_file + '.RData')
+#        dataset=robjects.r[variable]
+#        X = np.array(dataset)
+#        X= np.transpose(X, (2,  1, 0))
+#        lon =  robjects.r['LON_' + region]
+#        lon = np.array(lon)
+#        lat =  robjects.r['LAT_' + region]
+#        lat = np.array(lat)
+#        ind = robjects.r['IND_' + region]
+#        ind = np.array(ind)-1 ### ATTENTION Python specific  from RData
+#        point_grid = range(784)
+#
+#    if index_temporal is not None:
+#        X= X[index_temporal,:,:]
+#    # expand to 3d, e.g. add channels dimension
+#    X = expand_dims(X, axis=-1)
+#    # convert from unsigned ints to floats
+#    X = X.astype('float32')
+#    #Save original data
+#    OriginalX = np.copy(X)
+#    min_=None
+#    max_=None
+#    # scale with rank by grid cells
+#    for k in range(28):
+#        for l in range(28):
+#            X[:,k,l,0]=(rankdata(X[:,k,l,0],method="min")/len(X[:,k,l,0]))
+#    return X, lon, lat, min_, max_, ind, point_grid, OriginalX
+
+
+
+##def compute_and_plot_criteria_for_early_stopping(dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove, rank_version,PR_version,epoch, datasetA, datasetB, datasetQQ, OriginalA, OriginalB, OriginalQQ, genA2B,  XminA_, XmaxA_, XminB_, XmaxB_, ind, lon, lat,point_grid,path_plot):
+##    print("begin criteria ")
+##    mae_mean, mae_std_rel, mae_correlogram= None, None, None
+##    if PR_version==False:
+##        name_var="T2"
+##    else:
+##        name_var="PR"
+##
+##    # Generate bias correction
+##    fakesetB = genA2B.predict(datasetA)
+##
+##    #Init matrices for evalutation of criteria
+##    datasetA_eval = np.copy(datasetA)
+##    datasetB_eval = np.copy(datasetB)
+##    fakesetB_eval = np.copy(fakesetB)
+##    datasetQQ_eval = np.copy(OriginalQQ) #Original direct
+##    if rank_version==False:
+##        #Rescale climatic variables wrt Xmin and Xmax
+##        n=-1
+##        for k in range(28):
+##            for l in range(28):
+##                n=n+1
+##                datasetA_eval[:,k,l,:] = datasetA_eval[:,k,l,:]*(XmaxA_[n] - XminA_[n])+ XminA_[n]
+##                datasetB_eval[:,k,l,:] = datasetB_eval[:,k,l,:]*(XmaxB_[n] - XminB_[n])+ XminB_[n]
+##                fakesetB_eval[:,k,l,:] = fakesetB_eval[:,k,l,:]*(XmaxB_[n] - XminB_[n])+ XminB_[n]
+##    else:
+##        #Reorder rank data with OriginalData
+##        datasetA_eval = np.copy(OriginalA)
+##        datasetB_eval = np.copy(OriginalB)
+##        for k in range(28):
+##            for l in range(28):
+##                quant_to_take=np.array(fakesetB_eval[:,k,l,0])
+##                fakesetB_eval[:,k,l,0] = np.quantile(datasetB_eval[:,k,l,0],quant_to_take)
+##
+##    ##!!!! Preprocess for PR !!! 
+##    if PR_version==True:
+##        datasetA_eval[datasetA_eval < 1] = 0
+##        datasetB_eval[datasetB_eval < 1] = 0
+##        fakesetB_eval[fakesetB_eval < 1] = 0
+##        datasetQQ_eval[datasetQQ_eval < 1] = 0
+##    #Compute Mean Sd criteria
+##    res_mean_datasetA, res_sd_datasetA = compute_mean_sd_array_new(datasetA_eval)
+##    res_mean_datasetB, res_sd_datasetB = compute_mean_sd_array_new(datasetB_eval)
+##    res_mean_fakesetB, res_sd_fakesetB = compute_mean_sd_array_new(fakesetB_eval)
+##    res_mean_datasetQQ, res_sd_datasetQQ = compute_mean_sd_array_new(datasetQQ_eval)
+##
+##    if PR_version==False:
+##        dict_mean["mae_A2B"].append(np.mean(abs(res_mean_fakesetB-res_mean_datasetB)))
+##        dict_mean["mae_QQ"].append(np.mean(abs(res_mean_datasetQQ - res_mean_datasetB)))
+##        dict_mean["mae_A"].append(np.mean(abs(res_mean_datasetA - res_mean_datasetB)))
+##        title_="mean_tas"
+##    else:
+##        dict_mean["mae_A2B"].append(np.mean(abs((res_mean_fakesetB-res_mean_datasetB)/res_mean_datasetB)))
+##        dict_mean["mae_QQ"].append(np.mean(abs((res_mean_datasetQQ-res_mean_datasetB)/res_mean_datasetB)))
+##        dict_mean["mae_A"].append(np.mean(abs((res_mean_datasetA-res_mean_datasetB)/res_mean_datasetB)))
+##        title_="mean_pr"
+##
+##    dict_sd_rel["mae_A2B"].append(np.mean(abs((res_sd_fakesetB-res_sd_datasetB)/res_sd_datasetB)))
+##    dict_sd_rel["mae_QQ"].append(np.mean(abs((res_sd_datasetQQ-res_sd_datasetB)/res_sd_datasetB)))
+##    dict_sd_rel["mae_A"].append(np.mean(abs((res_sd_datasetA-res_sd_datasetB)/res_sd_datasetB)))
+##    print("MAE A2B: " + str(round(dict_mean["mae_A2B"][-1],3)))
+##    #Attention Flemme LON/LAT
+##    plot_maps(epoch,PR_version, res_mean_datasetA, res_mean_datasetB, res_mean_fakesetB, title_,path_plot=path_plot)
+##    #Compute correlograms
+##    #Need to reverse the array
+##    reversed_datasetA=np.transpose(datasetA_eval[:,:,:,0],(2,1,0))
+##    res_correlo_datasetA, _, distance = compute_correlo(True,reversed_datasetA, ind, lon, lat, point_grid)
+##    res_correlo_wt_remove_datasetA, _, distance = compute_correlo(False,reversed_datasetA, ind, lon, lat, point_grid)
+##
+##    reversed_datasetB=np.transpose(datasetB_eval[:,:,:,0],(2,1,0))
+##    res_correlo_datasetB, _, distance = compute_correlo(True,reversed_datasetB, ind, lon, lat, point_grid)
+##    res_correlo_wt_remove_datasetB, _, distance = compute_correlo(False,reversed_datasetB, ind, lon, lat, point_grid)
+##
+##    reversed_fakesetB=np.transpose(fakesetB_eval[:,:,:,0],(2,1,0))
+##    res_correlo_fakesetB, _, distance = compute_correlo(True,reversed_fakesetB, ind, lon, lat, point_grid)
+##    res_correlo_wt_remove_fakesetB, _, distance = compute_correlo(False,reversed_fakesetB, ind, lon, lat, point_grid)
+##
+##    reversed_datasetQQ=np.transpose(datasetQQ_eval[:,:,:,0],(2,1,0))
+##    res_correlo_datasetQQ, _, distance = compute_correlo(True,reversed_datasetQQ, ind, lon, lat, point_grid)
+##    res_correlo_wt_remove_datasetQQ, _, distance = compute_correlo(False,reversed_datasetQQ, ind, lon, lat, point_grid)
+##
+##    dict_correlogram["mae_A2B"].append(np.mean(abs(res_correlo_fakesetB-res_correlo_datasetB)))
+##    dict_correlogram["mae_QQ"].append(np.mean(abs(res_correlo_datasetQQ - res_correlo_datasetB)))
+##    dict_correlogram["mae_A"].append(np.mean(abs(res_correlo_datasetA - res_correlo_datasetB)))
+##
+##    dict_correlogram_wt_remove["mae_A2B"].append(np.mean(abs(res_correlo_wt_remove_fakesetB - res_correlo_wt_remove_datasetB)))
+##    dict_correlogram_wt_remove["mae_QQ"].append(np.mean(abs(res_correlo_wt_remove_datasetQQ - res_correlo_wt_remove_datasetB)))
+##    dict_correlogram_wt_remove["mae_A"].append(np.mean(abs(res_correlo_wt_remove_datasetA - res_correlo_wt_remove_datasetB)))
+##
+##    #plot correlograms
+##    pyplot.figure(figsize=(9,10))
+##    title_crit="correlograms"
+##    pyplot.subplot(2, 1, 1)
+##    pyplot.plot(distance,res_correlo_datasetA,color="red")
+##    pyplot.plot(distance,res_correlo_datasetB,color="black")
+##    pyplot.plot(distance,res_correlo_fakesetB,color="blue")
+##    pyplot.plot(distance,res_correlo_datasetQQ, color= "orange")
+##    pyplot.legend(['Mod', 'Ref', 'CycleGAN', 'QQ'], loc='upper right')
+##    pyplot.title('MAE Correlogram CycleGAN: ' +str(round(dict_correlogram["mae_A2B"][-1],3)) + ',  Mod: ' + str(round(dict_correlogram["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram["mae_QQ"][-1],3)) ,fontsize=10, y=1)
+##    pyplot.ylim((-1,1.05))
+##    pyplot.ylabel(name_var + " Spearman spatial Corr")
+##    pyplot.xlabel("Distance (km)")
+##
+##    pyplot.subplot(2, 1, 2)
+##    pyplot.plot(distance,res_correlo_wt_remove_datasetA,color="red")
+##    pyplot.plot(distance,res_correlo_wt_remove_datasetB,color="black")
+##    pyplot.plot(distance,res_correlo_wt_remove_fakesetB,color="blue")
+##    pyplot.plot(distance,res_correlo_wt_remove_datasetQQ,color="orange")
+##    pyplot.legend(['Mod', 'Ref', 'CycleGAN', 'QQ'], loc='lower right')
+##    pyplot.title('MAE Correlogram CycleGAN: ' +str(round(dict_correlogram_wt_remove["mae_A2B"][-1],3)) + ',  Mod: ' + str(round(dict_correlogram_wt_remove["mae_A"][-1],3)) + ', QQ: ' + str(round(dict_correlogram_wt_remove["mae_QQ"][-1],3)) ,fontsize=10, y=1)
+##    pyplot.ylim((0.5,1.05))
+##    pyplot.ylabel(name_var + " Spearman spatial Corr")
+##    pyplot.xlabel("Distance (km)")
+##
+##    pyplot.savefig(path_plot + '/diagnostic/plot_'+ title_crit + '_%03d.png' % (epoch+1))
+##    pyplot.close()
+##
+##    return dict_mean, dict_sd_rel, dict_correlogram, dict_correlogram_wt_remove
+##
+#
